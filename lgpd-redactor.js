@@ -17,9 +17,9 @@
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS BLINDADAS
-    let pdfDocInstance = null; // Motor de Edição (pdf-lib)
-    let globalPdfJsDoc = null; // Motor Gráfico e Escaner (pdf.js)
+    // 2. VARIÁVEIS GLOBAIS
+    let pdfDocInstance = null; 
+    let globalPdfJsDoc = null; 
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -99,7 +99,7 @@
         });
     }
 
-    // 5. Fluxo de Upload Definitivo
+    // 5. Fluxo de Upload 
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -119,7 +119,6 @@
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
-        
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
@@ -212,7 +211,7 @@
             tarja.title = "Clique para editar novamente";
         };
 
-        // Permite reedição (Clica na tarja preta -> volta a ser vermelha e ajustável)
+        // Permite reedição
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
@@ -250,18 +249,16 @@
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // Algoritmo que calcula qual página o usuário está olhando agora
     function getPaginaMaisVisivel() {
         const pages = document.querySelectorAll('.pdf-page-container');
         if (!pages.length) return null;
 
         let maxVisibleArea = 0;
-        let visiblePage = pages[0]; // fallback
+        let visiblePage = pages[0]; 
         const viewHeight = window.innerHeight;
 
         pages.forEach(page => {
             const rect = page.getBoundingClientRect();
-            // Verifica o quanto da página está dentro da tela
             const visibleTop = Math.max(0, rect.top);
             const visibleBottom = Math.min(viewHeight, rect.bottom);
             const visibleHeight = Math.max(0, visibleBottom - visibleTop);
@@ -274,19 +271,16 @@
         return visiblePage;
     }
 
-    // 7. Eventos de Ação (Com a nova lógica de Escaneamento)
+    // 7. Eventos de Ação 
     function inicializarEventos() {
         
-        // EVENTO: Inserir tarja manual na página atual focada pelo usuário
         document.getElementById('btn-add-manual').onclick = function() {
             const paginaAtual = getPaginaMaisVisivel();
             if (paginaAtual) {
-                // Calcula a altura da rolagem para a tarja aparecer bem no meio da tela do usuário
                 const rect = paginaAtual.getBoundingClientRect();
                 const viewCenterY = window.innerHeight / 2;
                 let topPx = viewCenterY - rect.top;
                 
-                // Travas de segurança para a tarja não sair da borda da folha
                 if (topPx < 0) topPx = 40;
                 if (topPx > rect.height) topPx = rect.height - 50;
 
@@ -294,7 +288,6 @@
             }
         };
 
-        // EVENTO: Confirmar Todas em Lote
         document.getElementById('btn-confirm-all').onclick = function() {
             const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
             pendentes.forEach(btn => btn.click());
@@ -302,7 +295,6 @@
             this.style.display = 'none'; 
         };
 
-        // EVENTO: Escaneamento (Regex ajustado sem CNPJ e com assinaturas Gov.br)
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
             const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -315,7 +307,7 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
-                // O novo Regex detecta o CPF e padrões de assinatura gov
+                // Regex ajustado (CPF e padrões gov)
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|Documento assinado digitalmente|gov\.br/gi;
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
@@ -348,7 +340,6 @@
                                 const widthTela = item.width * viewport.scale;
                                 const topTela = telaY - fontSizeTela;
 
-                                // Injeta com precisão (+6px largura, +4px altura por segurança)
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
@@ -373,7 +364,6 @@
             }
         };
 
-        // EVENTO: Salvar PDF e Gerar Download
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
@@ -393,7 +383,6 @@
                 const yTela = parseFloat(tarja.style.top);
                 const hTarja = tarja.offsetHeight;
                 
-                // pdf-lib tem a coordenada Y (0) no canto inferior esquerdo. Precisamos inverter.
                 const yPdf = (container.offsetHeight - yTela - hTarja) * scaleY; 
                 
                 paginaAlvo.drawRectangle({
