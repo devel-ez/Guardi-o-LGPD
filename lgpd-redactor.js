@@ -235,16 +235,18 @@
 
     // ===================================================================
     // PADRÕES DE DADOS SENSÍVEIS LGPD — PRECISOS POR CATEGORIA
-    // ===================================================================
-
-    // CPF formatado: 000.000.000-00
-    const reCPF        = /\b\d{3}[.\s]\d{3}[.\s]\d{3}[-\s]\d{2}\b/;
+    // =====================================    // CPF formatado: 000.000.000-00  (aceita espaços extras que o PDF.js insere entre tokens)
+    const reCPF        = /\b\d{3}\s*[.\s]\s*\d{3}\s*[.\s]\s*\d{3}\s*[-\s]\s*\d{2}\b/;
+    // CPF sem formatação alguma: 11 dígitos contíguos
+    const reCPFRaw     = /(?<!\d)\d{11}(?!\d)/;
     // RG / Identidade Civil (precedido de label)
     const reRG         = /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*\d[\d.\-\/]{4,}/i;
     // Identidade Militar / Matrícula
     const reIM         = /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*[\d.\-\/]+/i;
-    // CEP
+    // CEP formatado: 00000-000
     const reCEP        = /\b\d{5}\s*-\s*\d{3}\b/;
+    // CEP sem formatação: 8 dígitos contíguos
+    const reCEPRaw     = /(?<!\d)\d{8}(?!\d)/;
     // Telefone / Celular
     const reTelefone   = /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/;
     // E-mail
@@ -254,20 +256,23 @@
     // Assinatura eletrônica / digital
     const reAssinElec  = /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/i;
     // Nome com label contextual (Nome:, Servidor:, Candidato:, etc.)
-    const reNomeLabel  = /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/i;
+    const reNomeLabel  = /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/i;
 
-    // Regex combinado para varredura rápida de linha de texto (Pass 1)
+    // Regex combinado para texto da linha (Pass 1 — texto normal e sem espaços extras)
     const regexLinha = new RegExp([
         reCPF.source, reRG.source, reIM.source, reCEP.source,
         reTelefone.source, reEmail.source, reEndereco.source,
         reAssinElec.source, reNomeLabel.source
     ].join('|'), 'i');
 
+    // Regex para texto compactado (sem espaços e separadores — detecta números raw)
+    const regexLinhaCompacta = new RegExp([
+        reCPFRaw.source, reCEPRaw.source, reEmail.source, reAssinElec.source
+    ].join('|'), 'i');
+
     // Palavras-chave de cargo/posto — para detectar blocos de assinatura (Pass 2)
     const reCargoAssinatura = /\b(?:Coronel|Tenente|Major|Capit[aã]o|Sargento|Cabo|Soldado|General|Almirante|Brigadeiro|Diretor[a]?|Chefe|Gerente|Coordenador[a]?|Gestor[a]?|Assessor[a]?|Presidente|Secretário[a]?|Superintendente|Delegado[a]?|Auditor[a]?|Analista|T[eé]cnico[a]?|Assistente|Servidor[a]?|Fiscal|Inspetor[a]?|Subchefi[ao]|Subsecretary?)\b/i;
 
-    // Compatibilidade: regexPuro para path OCR (Tesseract)
-    const regexPuro = regexLinha;
 
     document.getElementById('btn-add-manual').onclick = function() {
         const paginaAtual = getPaginaMaisVisivel();
@@ -346,9 +351,17 @@
                         };
 
                         // --- PASS 1: Padrões específicos de dados sensíveis ---
+                        // Testa 3 variantes do texto para cobrir: (a) texto normal, (b) texto sem espaços
+                        // extras (tokens que o PDF.js separou), (c) texto sem qualquer separador (números raw)
                         const linhasJaMarcadas = new Set();
                         linhas.forEach((linha, idx) => {
-                            if (regexLinha.test(linha.texto)) {
+                            const textoSemEsp    = linha.texto.replace(/\s+/g, '');           // remove espaços: "123 . 456" → "123.456"
+                            const textoCompacto  = linha.texto.replace(/[\s.\-\/()]/g, ''); // remove separadores: "123.456.789-10" → "12345678910"
+                            const detectado =
+                                regexLinha.test(linha.texto)     ||
+                                regexLinha.test(textoSemEsp)     ||
+                                regexLinhaCompacta.test(textoCompacto);
+                            if (detectado) {
                                 tarjasDetectadas++;
                                 linhasJaMarcadas.add(idx);
                                 marcarLinha(linha);
@@ -380,7 +393,7 @@
                         if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                         const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
                         data.lines.forEach(line => {
-                            if (line.text.match(regexPuro)) {
+                            if (regexLinha.test(line.text)) {
                                 tarjasDetectadas++;
                                 injetarTarjaNaPagina(pageContainer, `${line.bbox.x1 - line.bbox.x0 + 10}px`, `${line.bbox.y1 - line.bbox.y0 + 10}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
                             }
