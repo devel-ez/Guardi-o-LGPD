@@ -235,40 +235,35 @@
 
     // ===================================================================
     // PADRÕES DE DADOS SENSÍVEIS LGPD — PRECISOS POR CATEGORIA
-    // =====================================    // CPF formatado: 000.000.000-00  (aceita espaços extras que o PDF.js insere entre tokens)
-    const reCPF        = /\b\d{3}\s*[.\s]\s*\d{3}\s*[.\s]\s*\d{3}\s*[-\s]\s*\d{2}\b/;
-    // CPF sem formatação alguma: 11 dígitos contíguos
-    const reCPFRaw     = /(?<!\d)\d{11}(?!\d)/;
-    // RG / Identidade Civil (precedido de label)
-    const reRG         = /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*\d[\d.\-\/]{4,}/i;
-    // Identidade Militar / Matrícula
-    const reIM         = /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*[\d.\-\/]+/i;
-    // CEP formatado: 00000-000
-    const reCEP        = /\b\d{5}\s*-\s*\d{3}\b/;
-    // CEP sem formatação: 8 dígitos contíguos
-    const reCEPRaw     = /(?<!\d)\d{8}(?!\d)/;
-    // Telefone / Celular
-    const reTelefone   = /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/;
-    // E-mail
-    const reEmail      = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
-    // Endereço: logradouro + número
-    const reEndereco   = /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/i;
-    // Assinatura eletrônica / digital
-    const reAssinElec  = /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/i;
-    // Nome com label contextual (Nome:, Servidor:, Candidato:, etc.)
-    const reNomeLabel  = /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/i;
-
-    // Regex combinado para texto da linha (Pass 1 — texto normal e sem espaços extras)
+    // ===    // Regex Combinado para uso no Fallback OCR
+    // Sem flag global (g) porque o .test() vai procurar em qualquer lugar da string e retornar true
     const regexLinha = new RegExp([
-        reCPF.source, reRG.source, reIM.source, reCEP.source,
-        reTelefone.source, reEmail.source, reEndereco.source,
-        reAssinElec.source, reNomeLabel.source
+        // CPF
+        "\\b(?:\\d\\s*){3}[.\\s]\\s*(?:\\d\\s*){3}[.\\s]\\s*(?:\\d\\s*){3}[-\\s]\\s*(?:\\d\\s*){2}\\b",
+        // CPFRaw
+        "(?<!\\d)(?:\\d\\s*){11}(?!\\d)",
+        // RG
+        "\\b(?:RG|R\\.G\\.|C\\.I\\.?|Identidade(?:\\s+Civil)?|Cédula)\\s*[:\\-]?\\s*(?:\\d\\s*[\\d.\\-\\/]\\s*){4,}\\b",
+        // Identidade Militar
+        "\\b(?:IM|I\\.M\\.|Ident\\.?\\s*Mil\\.?|Identidade\\s+Militar|Matr[íi]cula|Mat\\.)\\s*[:\\-]?\\s*(?:[\\d.\\-\\/]\\s*)+\\b",
+        // CEP
+        "\\b(?:\\d\\s*){5}-\\s*(?:\\d\\s*){3}\\b",
+        // CEPRaw
+        "(?<!\\d)(?:\\d\\s*){8}(?!\\d)",
+        // Telefone
+        "\\(?\\d{2}\\)?[\\s.\\-]?(?:9[\\s.]?)?\\d{4}[\\s.\\-]\\d{4}",
+        // Email
+        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}",
+        // Endereco
+        "\\b(?:Rua|Av\\.?|Avenida|Al\\.?|Alameda|Pça\\.?|Praça|Tv\\.?|Travessa|Rod\\.?|Rodovia|Est\\.?|Estrada|Qd\\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\\b[^\\n]{2,80}\\b\\d{1,6}\\b",
+        // Assinatura
+        "assinado\\s+(?:eletronicamente|digitalmente)|assinatura\\s+(?:eletr[ôo]nica|digital)|certificado\\s+digital|ICP-?Brasil|gov\\.br(?:\\/assinatura)?",
+        // Nome Label
+        "\\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\\s*:+\\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\\d\\n,;]{5,60}",
+        // Nome genérico em uppercase ou titlecase
+        "\\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})(?:\\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}))+\\b"
     ].join('|'), 'i');
 
-    // Regex para texto compactado (sem espaços e separadores — detecta números raw)
-    const regexLinhaCompacta = new RegExp([
-        reCPFRaw.source, reCEPRaw.source, reEmail.source, reAssinElec.source
-    ].join('|'), 'i');
 
     // Palavras-chave de cargo/posto — para detectar blocos de assinatura (Pass 2)
     const reCargoAssinatura = /\b(?:Coronel|Tenente|Major|Capit[aã]o|Sargento|Cabo|Soldado|General|Almirante|Brigadeiro|Diretor[a]?|Chefe|Gerente|Coordenador[a]?|Gestor[a]?|Assessor[a]?|Presidente|Secretário[a]?|Superintendente|Delegado[a]?|Auditor[a]?|Analista|T[eé]cnico[a]?|Assistente|Servidor[a]?|Fiscal|Inspetor[a]?|Subchefi[ao]|Subsecretary?)\b/i;
@@ -333,59 +328,70 @@
                             linhaAtual.texto += (linhaAtual.texto ? ' ' : '') + item.str;
                         });
 
-                        // Helper: bounding box de uma linha no viewport
-                        const getBBox = (linha) => {
-                            const first = linha.tokens[0], last = linha.tokens[linha.tokens.length - 1];
+                        // Mapear cada caractere em linha.texto para o respectivo token PDF.js originário
+                        // Isso garante precisão pixel perfeito e não borra a seleção para a linha inteira (ex: tabelas)
+                        const charToToken = [];
+                        linha.tokens.forEach((token, idx) => {
+                            for(let i=0; i<token.str.length; i++) charToToken.push(token);
+                            if (idx < linha.tokens.length - 1) charToToken.push(token); // o espaço do join(' ')
+                        });
+
+                        // Helper para bounding box exato da MATCH string
+                        const marcarTrecho = (matchStart, matchLen) => {
+                            let startIndex = matchStart;
+                            let endIndex = matchStart + matchLen - 1;
+                            if (startIndex >= charToToken.length) return;
+                            if (endIndex >= charToToken.length) endIndex = charToToken.length - 1;
+                            
+                            const first = charToToken[startIndex];
+                            const last = charToToken[endIndex];
+                            if (!first || !last) return;
+                            
                             const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                             const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                             const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
                             const h = Math.max((fs * viewport.scale) + 6, 12);
-                            const w = Math.max(x1 - x0 + 10, 50);
-                            return { x: x0 - 4, y: y0 - h + 2, w, h };
+                            const w = Math.max(x1 - x0 + 4, 15);
+                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
                         };
 
-                        // Helper: injetar tarja a partir de bbox
-                        const marcarLinha = (linha) => {
-                            const bb = getBBox(linha);
-                            injetarTarjaNaPagina(pageContainer, `${bb.w}px`, `${bb.h}px`, `${bb.y}px`, `${bb.x}px`);
-                        };
+                        // --- PASS 1: Padrões específicos de dados sensíveis na Linha Inteira ---
+                        // Recompilar RegExp em varredura global para pegar os exatos bounds de tudo na linha
+                        const regexesBusca = [
+                            /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF Tolerante
+                            /(?<!\d)(?:\d\s*){11}(?!\d)/gi, // CPF Raw Tolerante
+                            /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*(?:\d\s*[\d.\-\/]\s*){4,}\b/gi, // RG
+                            /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*(?:[\d.\-\/]\s*)+\b/gi, // IM
+                            /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP
+                            /(?<!\d)(?:\d\s*){8}(?!\d)/gi, // CEP Raw
+                            /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
+                            /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
+                            /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
+                            /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
+                            /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi, // Nome c/ Label
+                            // Nome genérico (2+ Palavras Cased): 
+                            /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}))+\b/g
+                        ];
 
-                        // --- PASS 1: Padrões específicos de dados sensíveis ---
-                        // Testa 3 variantes do texto para cobrir: (a) texto normal, (b) texto sem espaços
-                        // extras (tokens que o PDF.js separou), (c) texto sem qualquer separador (números raw)
-                        const linhasJaMarcadas = new Set();
-                        linhas.forEach((linha, idx) => {
-                            const textoSemEsp    = linha.texto.replace(/\s+/g, '');           // remove espaços: "123 . 456" → "123.456"
-                            const textoCompacto  = linha.texto.replace(/[\s.\-\/()]/g, ''); // remove separadores: "123.456.789-10" → "12345678910"
-                            const detectado =
-                                regexLinha.test(linha.texto)     ||
-                                regexLinha.test(textoSemEsp)     ||
-                                regexLinhaCompacta.test(textoCompacto);
-                            if (detectado) {
-                                tarjasDetectadas++;
-                                linhasJaMarcadas.add(idx);
-                                marcarLinha(linha);
-                            }
-                        });
+                        const textoLen = charToToken.length;
+                        // Usaremos um array de posicoes ja marcadas para evitar redundancias (ex: CPF e CPFRaw)
+                        const overlaps = new Uint8Array(textoLen); 
 
-                        // --- PASS 2: Blocos de assinatura ---
-                        // Detecta nome em CAIXA ALTA (2+ palavras) adjacente a linha com cargo/posto
-                        const reNomeCaps = /^[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ\s]{4,}$/;
-                        linhas.forEach((linha, idx) => {
-                            if (linhasJaMarcadas.has(idx)) return;
-                            const texto = linha.texto.trim();
-                            if (!reNomeCaps.test(texto)) return;
-                            const palavras = texto.split(/\s+/).filter(p => p.length > 1);
-                            if (palavras.length < 2 || palavras.length > 8) return; // evita frases longas
-                            const anterior = linhas[idx - 1];
-                            const posterior = linhas[idx + 1];
-                            const temCargo =
-                                (anterior && reCargoAssinatura.test(anterior.texto)) ||
-                                (posterior && reCargoAssinatura.test(posterior.texto));
-                            if (temCargo) {
-                                tarjasDetectadas++;
-                                linhasJaMarcadas.add(idx);
-                                marcarLinha(linha);
+                        regexesBusca.forEach(regex => {
+                            let match;
+                            while ((match = regex.exec(linha.texto)) !== null) {
+                                // checar overlap para evitar 2 caixas no mesmo dado
+                                let hasOverlap = false;
+                                for(let k=0; k<match[0].length; k++) {
+                                    if(overlaps[match.index + k]) { hasOverlap = true; break; }
+                                }
+                                if(!hasOverlap) {
+                                    tarjasDetectadas++;
+                                    marcarTrecho(match.index, match[0].length);
+                                    for(let k=0; k<match[0].length; k++) {
+                                        overlaps[match.index + k] = 1;
+                                    }
+                                }
                             }
                         });
                     } else {
