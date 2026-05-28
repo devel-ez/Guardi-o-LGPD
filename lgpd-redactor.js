@@ -233,12 +233,41 @@
         return visiblePage;
     }
 
-    // Inicialização final com Eventos Integrados
-    // Regex ampliado: CPF, CNPJ, RG, telefone, CEP, e-mail, nomes próprios (2+ palavras maiúsculas), expressões de assinatura
-    const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{2}\s*\.\s*\d{3}\s*\.\s*\d{3}\/\d{4}-\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}[-\s]\d{4}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|Documento\s+assinado\s+digitalmente|gov\.br|(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+\.?\s+){1,}[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+/g;
+    // ===================================================================
+    // PADRÕES DE DADOS SENSÍVEIS LGPD — PRECISOS POR CATEGORIA
+    // ===================================================================
 
-    // Regex para detecção no texto consolidado de linhas (captura nomes com todas letras maiúsculas também)
-    const regexConsolidado = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{2}\s*\.\s*\d{3}\s*\.\s*\d{3}\/\d{4}-\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}[-\s]\d{4}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|Documento\s+assinado\s+digitalmente|gov\.br|(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}\s+){1,}[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}|(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+\.?\s+){1,}[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+/g;
+    // CPF formatado: 000.000.000-00
+    const reCPF        = /\b\d{3}[.\s]\d{3}[.\s]\d{3}[-\s]\d{2}\b/;
+    // RG / Identidade Civil (precedido de label)
+    const reRG         = /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*\d[\d.\-\/]{4,}/i;
+    // Identidade Militar / Matrícula
+    const reIM         = /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*[\d.\-\/]+/i;
+    // CEP
+    const reCEP        = /\b\d{5}\s*-\s*\d{3}\b/;
+    // Telefone / Celular
+    const reTelefone   = /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/;
+    // E-mail
+    const reEmail      = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+    // Endereço: logradouro + número
+    const reEndereco   = /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/i;
+    // Assinatura eletrônica / digital
+    const reAssinElec  = /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/i;
+    // Nome com label contextual (Nome:, Servidor:, Candidato:, etc.)
+    const reNomeLabel  = /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/i;
+
+    // Regex combinado para varredura rápida de linha de texto (Pass 1)
+    const regexLinha = new RegExp([
+        reCPF.source, reRG.source, reIM.source, reCEP.source,
+        reTelefone.source, reEmail.source, reEndereco.source,
+        reAssinElec.source, reNomeLabel.source
+    ].join('|'), 'i');
+
+    // Palavras-chave de cargo/posto — para detectar blocos de assinatura (Pass 2)
+    const reCargoAssinatura = /\b(?:Coronel|Tenente|Major|Capit[aã]o|Sargento|Cabo|Soldado|General|Almirante|Brigadeiro|Diretor[a]?|Chefe|Gerente|Coordenador[a]?|Gestor[a]?|Assessor[a]?|Presidente|Secretário[a]?|Superintendente|Delegado[a]?|Auditor[a]?|Analista|T[eé]cnico[a]?|Assistente|Servidor[a]?|Fiscal|Inspetor[a]?|Subchefi[ao]|Subsecretary?)\b/i;
+
+    // Compatibilidade: regexPuro para path OCR (Tesseract)
+    const regexPuro = regexLinha;
 
     document.getElementById('btn-add-manual').onclick = function() {
         const paginaAtual = getPaginaMaisVisivel();
@@ -277,43 +306,73 @@
                 if (pageContainer) {
                     const textoPagina = textContent.items.map(it => it.str).join(' ');
                     if (textoPagina.length > 20) {
-                        // --- NOVA LÓGICA: Agrupar tokens em "linhas" pela posição Y ---
+                        // --- Agrupar tokens em linhas pela posição Y (tolerância 4px) ---
+                        const toleranciaY = 4;
                         const linhas = [];
                         let linhaAtual = null;
-                        const toleranciaY = 3; // pixels de tolerância para considerar mesma linha
 
                         const itensOrdenados = [...textContent.items].sort((a, b) => {
-                            const yA = a.transform[5];
-                            const yB = b.transform[5];
-                            if (Math.abs(yA - yB) > toleranciaY) return yB - yA; // y decrescente (PDF: y começa de baixo)
-                            return a.transform[4] - b.transform[4]; // x crescente
+                            const dy = b.transform[5] - a.transform[5];
+                            if (Math.abs(dy) > toleranciaY) return dy;
+                            return a.transform[4] - b.transform[4];
                         });
 
                         itensOrdenados.forEach(item => {
                             if (!item.str.trim()) return;
                             const itemY = item.transform[5];
                             if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > toleranciaY) {
-                                linhaAtual = { y: itemY, tokens: [] };
+                                linhaAtual = { y: itemY, tokens: [], texto: '' };
                                 linhas.push(linhaAtual);
                             }
                             linhaAtual.tokens.push(item);
+                            linhaAtual.texto += (linhaAtual.texto ? ' ' : '') + item.str;
                         });
 
-                        // Para cada linha, concatenar texto e buscar dados sensíveis
-                        linhas.forEach(linha => {
-                            const textoLinha = linha.tokens.map(t => t.str).join(' ');
-                            regexConsolidado.lastIndex = 0;
-                            if (regexConsolidado.test(textoLinha)) {
+                        // Helper: bounding box de uma linha no viewport
+                        const getBBox = (linha) => {
+                            const first = linha.tokens[0], last = linha.tokens[linha.tokens.length - 1];
+                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                            const h = Math.max((fs * viewport.scale) + 6, 12);
+                            const w = Math.max(x1 - x0 + 10, 50);
+                            return { x: x0 - 4, y: y0 - h + 2, w, h };
+                        };
+
+                        // Helper: injetar tarja a partir de bbox
+                        const marcarLinha = (linha) => {
+                            const bb = getBBox(linha);
+                            injetarTarjaNaPagina(pageContainer, `${bb.w}px`, `${bb.h}px`, `${bb.y}px`, `${bb.x}px`);
+                        };
+
+                        // --- PASS 1: Padrões específicos de dados sensíveis ---
+                        const linhasJaMarcadas = new Set();
+                        linhas.forEach((linha, idx) => {
+                            if (regexLinha.test(linha.texto)) {
                                 tarjasDetectadas++;
-                                // Calcular bounding box da linha inteira no viewport
-                                const firstToken = linha.tokens[0];
-                                const lastToken = linha.tokens[linha.tokens.length - 1];
-                                const [x0, y0] = viewport.convertToViewportPoint(firstToken.transform[4], firstToken.transform[5]);
-                                const [x1] = viewport.convertToViewportPoint(lastToken.transform[4] + lastToken.width, lastToken.transform[5]);
-                                const fontSizePdf = Math.sqrt((firstToken.transform[2] ** 2) + (firstToken.transform[3] ** 2)) || Math.abs(firstToken.transform[0]);
-                                const alturaToken = (fontSizePdf * viewport.scale) + 4;
-                                const largura = Math.max(x1 - x0 + 6, 50);
-                                injetarTarjaNaPagina(pageContainer, `${largura}px`, `${alturaToken}px`, `${y0 - alturaToken + 2}px`, `${x0 - 3}px`);
+                                linhasJaMarcadas.add(idx);
+                                marcarLinha(linha);
+                            }
+                        });
+
+                        // --- PASS 2: Blocos de assinatura ---
+                        // Detecta nome em CAIXA ALTA (2+ palavras) adjacente a linha com cargo/posto
+                        const reNomeCaps = /^[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ\s]{4,}$/;
+                        linhas.forEach((linha, idx) => {
+                            if (linhasJaMarcadas.has(idx)) return;
+                            const texto = linha.texto.trim();
+                            if (!reNomeCaps.test(texto)) return;
+                            const palavras = texto.split(/\s+/).filter(p => p.length > 1);
+                            if (palavras.length < 2 || palavras.length > 8) return; // evita frases longas
+                            const anterior = linhas[idx - 1];
+                            const posterior = linhas[idx + 1];
+                            const temCargo =
+                                (anterior && reCargoAssinatura.test(anterior.texto)) ||
+                                (posterior && reCargoAssinatura.test(posterior.texto));
+                            if (temCargo) {
+                                tarjasDetectadas++;
+                                linhasJaMarcadas.add(idx);
+                                marcarLinha(linha);
                             }
                         });
                     } else {
