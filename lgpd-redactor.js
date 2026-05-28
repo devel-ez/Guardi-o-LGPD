@@ -125,12 +125,10 @@
 
     async function processarArquivo(file) {
         if (file.type !== "application/pdf") { alert("Selecione um PDF."); return; }
-
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
         await new Promise(r => setTimeout(r, 50)); 
-
         try {
             originalArrayBuffer = await file.arrayBuffer();
             pdfDocInstance = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
@@ -173,6 +171,7 @@
         }
         loadContainer.style.display = 'none';
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
+        inicializarEventos();
     }
 
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
@@ -195,6 +194,7 @@
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
         btnConfirmar.onclick = (e) => { e.stopPropagation(); tarja.classList.add('confirmada'); controls.style.display = 'none'; };
         tarja.onclick = (e) => { if (tarja.classList.contains('confirmada')) { tarja.classList.remove('confirmada'); controls.style.display = 'flex'; } };
+        
         let isDragging = false;
         let startX, startY;
         tarja.addEventListener('mousedown', function(e) {
@@ -204,7 +204,7 @@
             if (e.target.tagName.toLowerCase() === 'button') return;
             isDragging = true;
             startX = e.clientX - tarja.offsetLeft;
-            startY = e.clientY - tarja.offsetTop;
+            startY = e.clientY - tarja.offsetTop; // <-- TYPO CORRIGIDO AQUI!
         });
         document.addEventListener('mousemove', function(e) {
             if (!isDragging) return;
@@ -233,258 +233,209 @@
         return visiblePage;
     }
 
-    // ===================================================================
-    // PADRÕES DE DADOS SENSÍVEIS LGPD — PRECISOS POR CATEGORIA
-    // ===    // Regex Combinado para uso no Fallback OCR
-    // Sem flag global (g) porque o .test() vai procurar em qualquer lugar da string e retornar true
-    const regexLinha = new RegExp([
-        // CPF
-        "\\b(?:\\d\\s*){3}[.\\s]\\s*(?:\\d\\s*){3}[.\\s]\\s*(?:\\d\\s*){3}[-\\s]\\s*(?:\\d\\s*){2}\\b",
-        // CPFRaw
-        "(?<!\\d)(?:\\d\\s*){11}(?!\\d)",
-        // RG
-        "\\b(?:RG|R\\.G\\.|C\\.I\\.?|Identidade(?:\\s+Civil)?|Cédula)\\s*[:\\-]?\\s*(?:\\d\\s*[\\d.\\-\\/]\\s*){4,}\\b",
-        // Identidade Militar
-        "\\b(?:IM|I\\.M\\.|Ident\\.?\\s*Mil\\.?|Identidade\\s+Militar|Matr[íi]cula|Mat\\.)\\s*[:\\-]?\\s*(?:[\\d.\\-\\/]\\s*)+\\b",
-        // CEP
-        "\\b(?:\\d\\s*){5}-\\s*(?:\\d\\s*){3}\\b",
-        // CEPRaw
-        "(?<!\\d)(?:\\d\\s*){8}(?!\\d)",
-        // Telefone
-        "\\(?\\d{2}\\)?[\\s.\\-]?(?:9[\\s.]?)?\\d{4}[\\s.\\-]\\d{4}",
-        // Email
-        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}",
-        // Endereco
-        "\\b(?:Rua|Av\\.?|Avenida|Al\\.?|Alameda|Pça\\.?|Praça|Tv\\.?|Travessa|Rod\\.?|Rodovia|Est\\.?|Estrada|Qd\\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\\b[^\\n]{2,80}\\b\\d{1,6}\\b",
-        // Assinatura
-        "assinado\\s+(?:eletronicamente|digitalmente)|assinatura\\s+(?:eletr[ôo]nica|digital)|certificado\\s+digital|ICP-?Brasil|gov\\.br(?:\\/assinatura)?",
-        // Nome Label
-        "\\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\\s*:+\\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\\d\\n,;]{5,60}",
-        // Nome genérico em uppercase ou titlecase
-        "\\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})(?:\\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}))+\\b"
-    ].join('|'), 'i');
+    function inicializarEventos() {
+        document.getElementById('btn-add-manual').onclick = function() {
+            const paginaAtual = getPaginaMaisVisivel();
+            if (paginaAtual) {
+                const rect = paginaAtual.getBoundingClientRect();
+                const viewCenterY = window.innerHeight / 2;
+                let topPx = viewCenterY - rect.top;
+                if (topPx < 0) topPx = 40;
+                if (topPx > rect.height) topPx = rect.height - 50;
+                injetarTarjaNaPagina(paginaAtual, '160px', '25px', `${topPx}px`, '40px');
+            }
+        };
 
+        document.getElementById('btn-confirm-all').onclick = function() {
+            const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
+            pendentes.forEach(btn => btn.click());
+            alert(`${pendentes.length} tarjas fixadas!`);
+            this.style.display = 'none'; 
+        };
 
-    // Palavras-chave de cargo/posto — para detectar blocos de assinatura (Pass 2)
-    const reCargoAssinatura = /\b(?:Coronel|Tenente|Major|Capit[aã]o|Sargento|Cabo|Soldado|General|Almirante|Brigadeiro|Diretor[a]?|Chefe|Gerente|Coordenador[a]?|Gestor[a]?|Assessor[a]?|Presidente|Secretário[a]?|Superintendente|Delegado[a]?|Auditor[a]?|Analista|T[eé]cnico[a]?|Assistente|Servidor[a]?|Fiscal|Inspetor[a]?|Subchefi[ao]|Subsecretary?)\b/i;
+        // Expressões regulares refatoradas e cross-browser (sem Lookbehinds problemáticos)
+        const regexesBusca = [
+            /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF 
+            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Raw Tolerante (seguro)
+            /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*(?:\d\s*[\d.\-\/]\s*){4,}\b/gi, // RG
+            /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*(?:[\d.\-\/]\s*)+\b/gi, // Identidade Militar
+            /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP Formatted
+            /(?:^|\D)((?:\d\s*){8})(?!\d)/gi, // CEP Raw (seguro)
+            /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
+            /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
+            /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
+            /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
+            /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi // Nomes rotulados
+        ];
+        const regexOCR = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}-\d{4}|Documento assinado digitalmente|gov\.br/gi;
 
+        document.getElementById('btn-auto-scan').onclick = async function() {
+            const btn = this;
+            const scanContainer = document.getElementById('lgpd-scan-progress-container');
+            const scanStatus = document.getElementById('lgpd-scan-status');
+            const scanBar = document.getElementById('lgpd-scan-bar');
+            btn.disabled = true; scanContainer.style.display = "block";
 
-    document.getElementById('btn-add-manual').onclick = function() {
-        const paginaAtual = getPaginaMaisVisivel();
-        if (paginaAtual) {
-            const rect = paginaAtual.getBoundingClientRect();
-            const viewCenterY = window.innerHeight / 2;
-            let topPx = viewCenterY - rect.top;
-            if (topPx < 0) topPx = 40;
-            if (topPx > rect.height) topPx = rect.height - 50;
-            injetarTarjaNaPagina(paginaAtual, '160px', '25px', `${topPx}px`, '40px');
-        }
-    };
+            try {
+                const totalPages = globalPdfJsDoc.numPages;
+                let tarjasDetectadas = 0;
 
-    document.getElementById('btn-confirm-all').onclick = function() {
-        const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
-        pendentes.forEach(btn => btn.click());
-        alert(`${pendentes.length} tarjas fixadas!`);
-        this.style.display = 'none'; 
-    };
+                for (let i = 1; i <= totalPages; i++) {
+                    scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
+                    scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
+                    const page = await globalPdfJsDoc.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const textContent = await page.getTextContent();
+                    const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
+                    
+                    if (pageContainer) {
+                        const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
+                        
+                        if (validItems.length > 10) {
+                            // --- MODO TEXTO (MATEMÁTICA AVANÇADA DE TABELAS) ---
+                            const linhas = [];
+                            let linhaAtual = null;
 
-    document.getElementById('btn-auto-scan').onclick = async function() {
-        const btn = this;
-        const scanContainer = document.getElementById('lgpd-scan-progress-container');
-        const scanStatus = document.getElementById('lgpd-scan-status');
-        const scanBar = document.getElementById('lgpd-scan-bar');
-        btn.disabled = true; scanContainer.style.display = "block";
-        try {
-            const totalPages = globalPdfJsDoc.numPages;
-            let tarjasDetectadas = 0;
-            for (let i = 1; i <= totalPages; i++) {
-                scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
-                const page = await globalPdfJsDoc.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 });
-                const textContent = await page.getTextContent();
-                const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
-                if (pageContainer) {
-                    const textoPagina = textContent.items.map(it => it.str).join(' ');
-                    if (textoPagina.length > 20) {
-                        // --- Agrupar tokens em linhas pela posição Y (tolerância 4px) ---
-                        const toleranciaY = 4;
-                        const linhas = [];
-                        let linhaAtual = null;
-
-                        const itensOrdenados = [...textContent.items].sort((a, b) => {
-                            const dy = b.transform[5] - a.transform[5];
-                            if (Math.abs(dy) > toleranciaY) return dy;
-                            return a.transform[4] - b.transform[4];
-                        });
-
-                        itensOrdenados.forEach(item => {
-                            if (!item.str.trim()) return;
-                            const itemY = item.transform[5];
-                            if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > toleranciaY) {
-                                linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
-                                linhas.push(linhaAtual);
-                            }
-                            
-                            let sep = '';
-                            if (linhaAtual.tokens.length > 0) {
-                                const lastItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
-                                const distX = item.transform[4] - (lastItem.transform[4] + lastItem.width);
-                                // Se a distancia for maior que espaço de coluna longo, inserimos '|'
-                                // Isso impede que o regex de nome cruze colunas independentes
-                                sep = distX > 15 ? ' | ' : ' ';
-                            }
-                            
-                            linhaAtual.tokens.push(item);
-                            
-                            // Adicionar os caracteres do separador ao charMap para bater indice 1:1 com a RegExp
-                            for (let i = 0; i < sep.length; i++) linhaAtual.charMap.push(item);
-                            // Adicionar os caracteres reais do texto
-                            for (let i = 0; i < item.str.length; i++) linhaAtual.charMap.push(item);
-                            
-                            linhaAtual.texto += sep + item.str;
-                        });
-
-                        // --- PASS 1: Padrões específicos de dados sensíveis na Linha Inteira ---
-                        const regexesBusca = [
-                            /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF Tolerante
-                            /(?<!\d)(?:\d\s*){11}(?!\d)/gi, // CPF Raw Tolerante
-                            /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*(?:\d\s*[\d.\-\/]\s*){4,}\b/gi, // RG
-                            /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*(?:[\d.\-\/]\s*)+\b/gi, // IM
-                            /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP
-                            /(?<!\d)(?:\d\s*){8}(?!\d)/gi, // CEP Raw
-                            /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
-                            /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
-                            /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
-                            /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
-                            /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi // Nome c/ Label
-                        ];
-
-                        // --- INTELLIGENT COLUMN DETECTION FOR TABLES ---
-                        // Find columns defined by "NOME" header to redact the whole column underneath
-                        const colunasNomePage = [];
-                        linhas.forEach(linha => {
-                            linha.tokens.forEach((token, idx) => {
-                                if (/^NOMES?$/i.test(token.str.trim())) {
-                                    const xMin = token.transform[4] - 10;
-                                    let xMax = 9999;
-                                    // limit column width if there is an adjacent column
-                                    if (idx + 1 < linha.tokens.length) {
-                                        xMax = linha.tokens[idx + 1].transform[4] - 10;
-                                    }
-                                    // if it's the last token but there are other lines we could check... keep 9999 for now
-                                    colunasNomePage.push({ xMin, xMax, headerY: token.transform[5] });
+                            validItems.sort((a, b) => {
+                                const dy = b.transform[5] - a.transform[5];
+                                if (Math.abs(dy) > 4) return dy;
+                                return a.transform[4] - b.transform[4];
+                            }).forEach(item => {
+                                const itemY = item.transform[5];
+                                if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 4) {
+                                    linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
+                                    linhas.push(linhaAtual);
                                 }
+                                let sep = '';
+                                if (linhaAtual.tokens.length > 0) {
+                                    const lastItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
+                                    const distX = item.transform[4] - (lastItem.transform[4] + lastItem.width);
+                                    sep = distX > 15 ? ' | ' : ' ';
+                                }
+                                linhaAtual.tokens.push(item);
+                                for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push(item);
+                                for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push(item);
+                                linhaAtual.texto += sep + item.str;
                             });
-                        });
 
-                        linhas.forEach(linha => {
-                            const charToToken = linha.charMap;
-                            const textoLen = charToToken.length;
-                            const overlaps = new Uint8Array(textoLen); 
-
-                            // Helper para bounding box exato da MATCH string
-                            const marcarTrecho = (matchStart, matchLen) => {
-                                let startIndex = matchStart;
-                                let endIndex = matchStart + matchLen - 1;
-                                if (startIndex >= charToToken.length) return;
-                                if (endIndex >= charToToken.length) endIndex = charToToken.length - 1;
-                                
-                                const first = charToToken[startIndex];
-                                const last = charToToken[endIndex];
-                                if (!first || !last) return;
-                                
-                                const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                const h = Math.max((fs * viewport.scale) + 6, 12);
-                                const w = Math.max(x1 - x0 + 4, 15);
-                                injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
-                            };
-
-                            regexesBusca.forEach(regex => {
-                                let match;
-                                regex.lastIndex = 0; // reset regex para iterar desde o inicio
-                                while ((match = regex.exec(linha.texto)) !== null) {
-                                    // checar overlap para evitar 2 caixas no mesmo dado
-                                    let hasOverlap = false;
-                                    for(let k=0; k<match[0].length; k++) {
-                                        if(overlaps[match.index + k]) { hasOverlap = true; break; }
+                            const colunasNomePage = [];
+                            linhas.forEach(linha => {
+                                linha.tokens.forEach((token, idx) => {
+                                    if (/^NOMES?$/i.test(token.str.trim())) {
+                                        const xMin = token.transform[4] - 10;
+                                        let xMax = 9999;
+                                        if (idx + 1 < linha.tokens.length) xMax = linha.tokens[idx + 1].transform[4] - 10;
+                                        colunasNomePage.push({ xMin, xMax });
                                     }
-                                    if(!hasOverlap) {
-                                        tarjasDetectadas++;
-                                        marcarTrecho(match.index, match[0].length);
-                                        for(let k=0; k<match[0].length; k++) {
-                                            overlaps[match.index + k] = 1;
+                                });
+
+                                const overlaps = new Uint8Array(linha.texto.length);
+
+                                const marcarTrecho = (matchIdx, matchLen) => {
+                                    let startIndex = matchIdx;
+                                    let endIndex = matchIdx + matchLen - 1;
+                                    if (startIndex >= linha.charMap.length) return;
+                                    if (endIndex >= linha.charMap.length) endIndex = linha.charMap.length - 1;
+
+                                    const first = linha.charMap[startIndex];
+                                    const last = linha.charMap[endIndex];
+                                    if (!first || !last || !first.transform || !last.transform) return;
+
+                                    const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                    const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                    const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                    const h = Math.max((fs * viewport.scale) + 6, 12);
+                                    const w = Math.max(x1 - x0 + 4, 15);
+                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
+                                    tarjasDetectadas++;
+                                };
+
+                                regexesBusca.forEach(regex => {
+                                    let match;
+                                    regex.lastIndex = 0;
+                                    while ((match = regex.exec(linha.texto)) !== null) {
+                                        let matchStr = match[1] || match[0];
+                                        let matchIdx = match[1] ? match.index + match[0].indexOf(match[1]) : match.index;
+                                        let hasOverlap = false;
+                                        for (let k = 0; k < matchStr.length; k++) {
+                                            if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
+                                        }
+                                        if (!hasOverlap) {
+                                            marcarTrecho(matchIdx, matchStr.length);
+                                            for (let k = 0; k < matchStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
                                     }
-                                }
-                            });
+                                });
 
-                            // Column-based redaction: if any token falls in the NOME column X bounds
-                            colunasNomePage.forEach(col => {
-                                const tokensInCol = linha.tokens.filter(t => t.transform[4] >= col.xMin && t.transform[4] <= col.xMax);
-                                if (tokensInCol.length > 0) {
-                                    const str = tokensInCol.map(t => t.str).join(' ');
-                                    // do not redact the header itself
-                                    if (!/^NOMES?$/i.test(str.trim()) && /[A-Za-zÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}/.test(str)) {
-                                        // Redact custom bounds
-                                        const first = tokensInCol[0];
-                                        const last = tokensInCol[tokensInCol.length - 1];
-                                        const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                        const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                        const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                        const h = Math.max((fs * viewport.scale) + 6, 12);
-                                        const w = Math.max(x1 - x0 + 4, 15);
-                                        injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
-                                        tarjasDetectadas++;
+                                colunasNomePage.forEach(col => {
+                                    const tokensInCol = linha.tokens.filter(t => t.transform[4] >= col.xMin && t.transform[4] <= col.xMax);
+                                    if (tokensInCol.length > 0) {
+                                        const str = tokensInCol.map(t => t.str).join(' ');
+                                        if (!/^NOMES?$/i.test(str.trim()) && /[A-Za-zÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}/.test(str)) {
+                                            const first = tokensInCol[0];
+                                            const last = tokensInCol[tokensInCol.length - 1];
+                                            if(!first.transform || !last.transform) return;
+
+                                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            const h = Math.max((fs * viewport.scale) + 6, 12);
+                                            const w = Math.max(x1 - x0 + 4, 15);
+                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
+                                            tarjasDetectadas++;
+                                        }
                                     }
+                                });
+                            });
+                        } else {
+                            // --- MODO IMAGEM (OCR) ---
+                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
+                            if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+                            const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
+                            data.lines.forEach(line => {
+                                if (line.text.match(regexOCR)) {
+                                    tarjasDetectadas++;
+                                    injetarTarjaNaPagina(pageContainer, `${line.bbox.x1 - line.bbox.x0 + 10}px`, `${line.bbox.y1 - line.bbox.y0 + 10}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
                                 }
                             });
-                        });
-                    } else {
-                        scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
-                        if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                        const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
-                        data.lines.forEach(line => {
-                            if (regexLinha.test(line.text)) {
-                                tarjasDetectadas++;
-                                injetarTarjaNaPagina(pageContainer, `${line.bbox.x1 - line.bbox.x0 + 10}px`, `${line.bbox.y1 - line.bbox.y0 + 10}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
-                            }
-                        });
+                        }
                     }
                 }
+                alert(`Concluído! ${tarjasDetectadas} possíveis dados sensíveis encontrados.`);
+                scanContainer.style.display = "none";
+                btn.disabled = false;
+                if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
+            } catch (e) { 
+                scanStatus.innerText = "Erro no escaneamento.";
+                btn.disabled = false; 
+                console.error(e); 
             }
-            alert(`Concluído! ${tarjasDetectadas} possíveis dados sensíveis encontrados.`);
-            scanContainer.style.display = "none";
-            btn.disabled = false;
-            if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
-        } catch (e) { alert("Erro na varredura."); btn.disabled = false; }
-    };
+        };
 
-    document.getElementById('btn-save-pdf').onclick = async function() {
-        const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
-        if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada!"); return; }
-        try {
-            const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
-            const paginasPdfLib = pdfDoc.getPages();
-            tarjas.forEach(tarja => {
-                const container = tarja.parentElement;
-                const pageNum = parseInt(container.getAttribute('data-page-number'));
-                const paginaAlvo = paginasPdfLib[pageNum - 1];
-                const { width: pdfWidth } = paginaAlvo.getSize();
-                const scaleX = pdfWidth / container.offsetWidth;
-                const scaleY = 1; // Ajuste simplificado
-                const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
-                paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
-            });
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: "application/pdf" });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = "documento_tratado_lgpd.pdf";
-            link.click();
-        } catch(e) { alert("Erro ao salvar PDF."); }
-    };
+        document.getElementById('btn-save-pdf').onclick = async function() {
+            const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
+            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada!"); return; }
+            try {
+                const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
+                const paginasPdfLib = pdfDoc.getPages();
+                tarjas.forEach(tarja => {
+                    const container = tarja.parentElement;
+                    const pageNum = parseInt(container.getAttribute('data-page-number'));
+                    const paginaAlvo = paginasPdfLib[pageNum - 1];
+                    const { width: pdfWidth } = paginaAlvo.getSize();
+                    const scaleX = pdfWidth / container.offsetWidth;
+                    const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
+                    paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
+                });
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: "application/pdf" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = "documento_tratado_lgpd.pdf";
+                link.click();
+            } catch(e) { alert("Erro ao salvar PDF."); }
+        };
+    }
 
     carregarDependencias();
 })();
