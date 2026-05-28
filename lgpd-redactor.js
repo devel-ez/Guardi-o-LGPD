@@ -234,7 +234,11 @@
     }
 
     // Inicialização final com Eventos Integrados
-    const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}-\d{4}|Documento assinado digitalmente|gov\.br/gi;
+    // Regex ampliado: CPF, CNPJ, RG, telefone, CEP, e-mail, nomes próprios (2+ palavras maiúsculas), expressões de assinatura
+    const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{2}\s*\.\s*\d{3}\s*\.\s*\d{3}\/\d{4}-\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}[-\s]\d{4}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|Documento\s+assinado\s+digitalmente|gov\.br|(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+\.?\s+){1,}[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+/g;
+
+    // Regex para detecção no texto consolidado de linhas (captura nomes com todas letras maiúsculas também)
+    const regexConsolidado = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{2}\s*\.\s*\d{3}\s*\.\s*\d{3}\/\d{4}-\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}[-\s]\d{4}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|Documento\s+assinado\s+digitalmente|gov\.br|(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}\s+){1,}[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}|(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+\.?\s+){1,}[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]+/g;
 
     document.getElementById('btn-add-manual').onclick = function() {
         const paginaAtual = getPaginaMaisVisivel();
@@ -273,12 +277,43 @@
                 if (pageContainer) {
                     const textoPagina = textContent.items.map(it => it.str).join(' ');
                     if (textoPagina.length > 20) {
-                        textContent.items.forEach(item => {
-                            if (item.str.match(regexPuro)) {
+                        // --- NOVA LÓGICA: Agrupar tokens em "linhas" pela posição Y ---
+                        const linhas = [];
+                        let linhaAtual = null;
+                        const toleranciaY = 3; // pixels de tolerância para considerar mesma linha
+
+                        const itensOrdenados = [...textContent.items].sort((a, b) => {
+                            const yA = a.transform[5];
+                            const yB = b.transform[5];
+                            if (Math.abs(yA - yB) > toleranciaY) return yB - yA; // y decrescente (PDF: y começa de baixo)
+                            return a.transform[4] - b.transform[4]; // x crescente
+                        });
+
+                        itensOrdenados.forEach(item => {
+                            if (!item.str.trim()) return;
+                            const itemY = item.transform[5];
+                            if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > toleranciaY) {
+                                linhaAtual = { y: itemY, tokens: [] };
+                                linhas.push(linhaAtual);
+                            }
+                            linhaAtual.tokens.push(item);
+                        });
+
+                        // Para cada linha, concatenar texto e buscar dados sensíveis
+                        linhas.forEach(linha => {
+                            const textoLinha = linha.tokens.map(t => t.str).join(' ');
+                            regexConsolidado.lastIndex = 0;
+                            if (regexConsolidado.test(textoLinha)) {
                                 tarjasDetectadas++;
-                                const [telaX, telaY] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-                                const fontSizePdf = Math.sqrt((item.transform[2] * item.transform[2]) + (item.transform[3] * item.transform[3])) || Math.abs(item.transform[0]);
-                                injetarTarjaNaPagina(pageContainer, `${item.width * viewport.scale + 6}px`, `${(fontSizePdf * viewport.scale) + 4}px`, `${telaY - (fontSizePdf * viewport.scale) - 2}px`, `${telaX - 3}px`);
+                                // Calcular bounding box da linha inteira no viewport
+                                const firstToken = linha.tokens[0];
+                                const lastToken = linha.tokens[linha.tokens.length - 1];
+                                const [x0, y0] = viewport.convertToViewportPoint(firstToken.transform[4], firstToken.transform[5]);
+                                const [x1] = viewport.convertToViewportPoint(lastToken.transform[4] + lastToken.width, lastToken.transform[5]);
+                                const fontSizePdf = Math.sqrt((firstToken.transform[2] ** 2) + (firstToken.transform[3] ** 2)) || Math.abs(firstToken.transform[0]);
+                                const alturaToken = (fontSizePdf * viewport.scale) + 4;
+                                const largura = Math.max(x1 - x0 + 6, 50);
+                                injetarTarjaNaPagina(pageContainer, `${largura}px`, `${alturaToken}px`, `${y0 - alturaToken + 2}px`, `${x0 - 3}px`);
                             }
                         });
                     } else {
