@@ -356,10 +356,26 @@
                             /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
                             /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
                             /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
-                            /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi, // Nome c/ Label
-                            // Nome genérico (2+ Palavras Cased):
-                            /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}))+\b/g
+                            /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi // Nome c/ Label
                         ];
+
+                        // --- INTELLIGENT COLUMN DETECTION FOR TABLES ---
+                        // Find columns defined by "NOME" header to redact the whole column underneath
+                        const colunasNomePage = [];
+                        linhas.forEach(linha => {
+                            linha.tokens.forEach((token, idx) => {
+                                if (/^NOMES?$/i.test(token.str.trim())) {
+                                    const xMin = token.transform[4] - 10;
+                                    let xMax = 9999;
+                                    // limit column width if there is an adjacent column
+                                    if (idx + 1 < linha.tokens.length) {
+                                        xMax = linha.tokens[idx + 1].transform[4] - 10;
+                                    }
+                                    // if it's the last token but there are other lines we could check... keep 9999 for now
+                                    colunasNomePage.push({ xMin, xMax, headerY: token.transform[5] });
+                                }
+                            });
+                        });
 
                         linhas.forEach(linha => {
                             const charToToken = linha.charMap;
@@ -400,6 +416,27 @@
                                         for(let k=0; k<match[0].length; k++) {
                                             overlaps[match.index + k] = 1;
                                         }
+                                    }
+                                }
+                            });
+
+                            // Column-based redaction: if any token falls in the NOME column X bounds
+                            colunasNomePage.forEach(col => {
+                                const tokensInCol = linha.tokens.filter(t => t.transform[4] >= col.xMin && t.transform[4] <= col.xMax);
+                                if (tokensInCol.length > 0) {
+                                    const str = tokensInCol.map(t => t.str).join(' ');
+                                    // do not redact the header itself
+                                    if (!/^NOMES?$/i.test(str.trim()) && /[A-Za-zÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}/.test(str)) {
+                                        // Redact custom bounds
+                                        const first = tokensInCol[0];
+                                        const last = tokensInCol[tokensInCol.length - 1];
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                        const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                        const h = Math.max((fs * viewport.scale) + 6, 12);
+                                        const w = Math.max(x1 - x0 + 4, 15);
+                                        injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
+                                        tarjasDetectadas++;
                                     }
                                 }
                             });
