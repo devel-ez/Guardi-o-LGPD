@@ -322,83 +322,50 @@
 
             btn.disabled = true; btn.style.opacity = "0.6";
             scanContainer.style.display = "block";
-            await new Promise(r => setTimeout(r, 50));
 
             try {
+                // REGEX ATUALIZADO: Inclui nomes próprios comuns (2+ palavras maiúsculas) e dados sensíveis
+                const regex = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|(?:\b[A-Z][a-zÀ-ÿ]{2,}\s){1,}[A-Z][a-zÀ-ÿ]{2,}/g;
+                
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
-                let ocrCarregado = false; // Só baixa a IA pesada se o documento realmente tiver páginas escaneadas
 
                 for (let i = 1; i <= totalPages; i++) {
+                    scanStatus.innerText = `Analisando página ${i}...`;
                     const page = await globalPdfJsDoc.getPage(i);
                     const viewport = page.getViewport({ scale: 1.5 });
                     const textContent = await page.getTextContent();
                     const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
 
-                    if (!pageContainer) continue;
-
-                    // Lógica para decidir se a página tem texto nativo legível ou se é uma imagem vazia
-                    const textoLimpo = textContent.items.map(item => item.str).join('').trim();
-                    const temTextoNativo = textoLimpo.length > 20; // Se a folha inteira tiver menos de 20 letras, assume-se que é imagem.
-
-                    if (temTextoNativo) {
-                        // === MODO RÁPIDO: TEXTO NATIVO ===
-                        scanStatus.innerText = `Pág. ${i}/${totalPages}: Lendo texto nativo...`;
-                        let pct = Math.round((i / totalPages) * 100);
-                        scanBar.style.width = `${pct}%`;
-                        scanPercent.innerText = `${pct}%`;
-                        await new Promise(r => setTimeout(r, 20));
-
+                    if (pageContainer) {
                         textContent.items.forEach(item => {
                             if (!item.str || !item.transform) return;
 
-                            if (item.str.match(regexPuro)) {
+                            // Filtro de segurança: ignora palavras muito curtas ou comuns do exército
+                            const ignorar = /INFORMEX|COMANDO|EXÉRCITO|BRASILEIRO|MILITAR|DIFUSÃO|ASSUNTO/gi;
+                            
+                            if (item.str.match(regex) && !item.str.match(ignorar)) {
                                 tarjasDetectadas++;
                                 const [telaX, telaY] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-                                const fontSizePdf = Math.sqrt((item.transform[2] * item.transform[2]) + (item.transform[3] * item.transform[3])) || Math.abs(item.transform[0]);
-                                const fontSizeTela = fontSizePdf * viewport.scale;
+                                const fontSizeTela = (Math.abs(item.transform[0]) * viewport.scale) + 4;
                                 const widthTela = item.width * viewport.scale;
                                 const topTela = telaY - fontSizeTela;
 
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
-
-                    } else {
-                        // === MODO IA: VISÃO COMPUTACIONAL (OCR) ===
-                        if (!ocrCarregado) {
-                            scanStatus.innerText = `Pág. ${i}: Imagem detectada. Ativando OCR (IA)...`;
-                            if (typeof Tesseract === 'undefined') {
-                                await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                            }
-                            ocrCarregado = true;
-                        }
-
-                        const canvas = pageContainer.querySelector('canvas');
-                        
-                        const { data } = await Tesseract.recognize(canvas, 'por', {
-                            logger: m => {
-                                if(m.status === 'recognizing text') {
-                                    let localPct = Math.round(m.progress * 100);
-                                    scanStatus.innerText = `Pág. ${i}/${totalPages} (OCR): ${localPct}%`;
-                                    scanBar.style.width = `${localPct}%`;
-                                    scanPercent.innerText = `${localPct}%`;
-                                }
-                            }
-                        });
-
-                        data.lines.forEach(line => {
-                            if (line.text.match(regexPuro)) {
-                                tarjasDetectadas++;
-                                const bbox = line.bbox; 
-                                const width = bbox.x1 - bbox.x0;
-                                const height = bbox.y1 - bbox.y0;
-
-                                injetarTarjaNaPagina(pageContainer, `${width + 10}px`, `${height + 10}px`, `${bbox.y0 - 5}px`, `${bbox.x0 - 5}px`);
-                            }
-                        });
                     }
                 }
+                
+                alert(`Varredura concluída. Encontramos ${tarjasDetectadas} potenciais nomes ou dados sensíveis.`);
+                scanContainer.style.display = "none";
+                btn.disabled = false;
+                if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
+            } catch (err) {
+                console.error(err);
+                btn.disabled = false;
+            }
+        };
 
                 scanStatus.innerText = `Finalizado!`;
                 scanBar.style.width = `100%`;
