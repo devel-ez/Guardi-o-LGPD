@@ -1,18 +1,3 @@
-O erro aconteceu porque eu falhei na última tentativa ao insistir em passar o `ArrayBuffer` (os bytes puros da memória RAM) para a biblioteca `pdf.js`.
-
-Como a `pdf.js` usa uma *thread* paralela (Web Worker) para processar o escaneamento sem congelar a tela, o navegador **bloqueia** e **destrói** o ArrayBuffer original por motivos de segurança (evitando que duas threads tentem editar o arquivo ao mesmo tempo). Isso gera o `Detached ArrayBuffer` (Buffer desanexado).
-
-### A Solução Definitiva (Mudança de Arquitetura)
-
-Vamos parar de tentar "clonar" o arquivo na RAM. A solução perfeita é transformar o PDF do usuário em um **Link Local (Blob URL)** (`URL.createObjectURL(file)`).
-
-Assim, o `pdf.js` vai tratar o arquivo como um "download" interno. A thread paralela puxa a URL por conta própria, o motor gráfico roda liso, e nunca mais teremos conflitos de memória, tornando o botão de "Escanear" à prova de falhas.
-
-Além disso, ajustei o CSS nativo das tarjas: criei uma classe estrita para os botões "✓" e "✕" garantindo que eles **nunca** vão sumir quando você redimensionar a tarja.
-
-Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
-
-```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
@@ -32,7 +17,7 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
     `;
     document.head.appendChild(style);
 
-    // 2. A SOLUÇÃO BLINDADA: Variáveis Globais separadas por responsabilidade
+    // 2. VARIÁVEIS GLOBAIS
     let pdfDocInstance = null; // Motor de Edição (pdf-lib)
     let globalPdfJsDoc = null; // Motor Gráfico e Escaner (pdf.js)
 
@@ -94,7 +79,7 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
         if (loader) loader.remove();
     };
 
-    // 4. Inicialização
+    // 4. Inicialização e Bibliotecas
     async function carregarDependencias() {
         try {
             await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
@@ -112,7 +97,7 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
         });
     }
 
-    // 5. Fluxo de Upload SEM ArrayBuffer (Zero chance de erro Detached)
+    // 5. Fluxo de Upload Definitivo
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -136,18 +121,19 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
-            // TÁTICA 1: pdf-lib recebe a memória crua (síncrono, nunca desanexa)
+            // AQUI ESTÁ A CORREÇÃO MÁGICA:
+            // 1. pdf-lib consome a memória bruta
             const arrayBuffer = await file.arrayBuffer();
             pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
             
-            // TÁTICA 2: pdf.js recebe um "Link Falso" do arquivo local (Blob URL).
-            const blobUrl = URL.createObjectURL(file);
-            globalPdfJsDoc = await pdfjsLib.getDocument(blobUrl).promise;
+            // 2. pdf.js consome APENAS A URL DO ARQUIVO (Nenhum buffer é transferido ou desanexado)
+            const objectUrl = URL.createObjectURL(file);
+            globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
 
             await renderizarDocumento(loadContainer);
-        } catch (error) {
-            alert("Erro ao processar estrutura do PDF.");
-            console.error(error);
+        } catch (err) {
+            alert("Erro ao ler PDF.");
+            console.error(err);
         }
     }
 
@@ -193,14 +179,13 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
         inicializarEventos();
     }
 
-    // 6. Fábrica de Tarjas (Botões Protegidos)
+    // 6. Fábrica de Tarjas Inteligentes
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         tarja.style.width = w; tarja.style.height = h;
         tarja.style.top = top; tarja.style.left = left;
 
-        // Container protegido para os botões
         const controls = document.createElement('div');
         controls.style.cssText = "display:flex; z-index:10001;";
 
@@ -219,7 +204,6 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
         tarja.appendChild(controls);
         pageContainer.appendChild(tarja);
 
-        // Ações de clique
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
         
         btnConfirmar.onclick = (e) => { 
@@ -237,7 +221,6 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
             }
         };
 
-        // Arrastar Seguro
         let isDragging = false;
         let startX, startY;
 
@@ -267,7 +250,7 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // 7. Eventos de Ação Definitivos
+    // 7. Eventos de Ação
     function inicializarEventos() {
         document.getElementById('btn-add-manual').onclick = function() {
             const primeiraPagina = workspace.querySelector('.pdf-page-container');
@@ -287,8 +270,6 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
 
             try {
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
-                
-                // Reaproveitamos a instância globalPdfJsDoc! O motor não precisa reler o arquivo do zero.
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
@@ -368,5 +349,3 @@ Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
 
     carregarDependencias();
 })();
-
-```
