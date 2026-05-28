@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos - Botões de controle agora ficam DENTRO da tarja para não serem cortados pelo overflow
+    // 1. Estilos - Botões de controle ancorados internamente e Resizer ativado
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -15,10 +15,9 @@
     `;
     document.head.appendChild(style);
 
-    // Variáveis Globais corrigidas para evitar o Detached ArrayBuffer
-    let pdfDocInstance = null; // Instância do pdf-lib (Para salvar depois)
-    let pdfBytesOriginal = null; // Cópia original em ArrayBuffer
-    let globalPdfJsDoc = null; // CACHE DA LEITURA: Guarda o PDF.js processado para não precisar reler ao escanear
+    // Variáveis Globais com Proteção contra Detached ArrayBuffer
+    let pdfDocInstance = null; // Instância editável do pdf-lib
+    let masterArrayBuffer = null; // O SANTO GRAAL: O arquivo intocado na memória RAM
 
     // 2. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -96,7 +95,7 @@
         });
     }
 
-    // 4. Fluxo de Upload
+    // 4. Fluxo de Upload Seguro
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -121,9 +120,12 @@
 
         const reader = new FileReader();
         reader.onload = async function(ev) {
-            // Cria um Uint8Array para evitar problemas de transferência de memória
-            pdfBytesOriginal = new Uint8Array(ev.target.result);
-            pdfDocInstance = await PDFLib.PDFDocument.load(pdfBytesOriginal);
+            masterArrayBuffer = ev.target.result; // Guarda o buffer intocado
+            
+            // Cópia 1 para o Motor de Edição Final (pdf-lib)
+            const bufferForEdit = masterArrayBuffer.slice(0);
+            pdfDocInstance = await PDFLib.PDFDocument.load(bufferForEdit);
+            
             await renderizarDocumento(loadContainer);
         };
         reader.readAsArrayBuffer(file);
@@ -137,10 +139,10 @@
         const loadPercent = document.getElementById('lgpd-load-percent');
         const loadBar = document.getElementById('lgpd-load-bar');
 
-        // Passa uma CÓPIA do buffer (.slice()) e SALVA o resultado globalmente
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytesOriginal.slice() });
-        globalPdfJsDoc = await loadingTask.promise; 
-        const totalPages = globalPdfJsDoc.numPages;
+        // CÓPIA 2 para o Motor Gráfico (Resolve o erro do ArrayBuffer Detached)
+        const bufferForRender = masterArrayBuffer.slice(0);
+        const pdfJsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(bufferForRender) }).promise;
+        const totalPages = pdfJsDoc.numPages;
 
         for (let i = 1; i <= totalPages; i++) {
             loadStatus.innerText = `Renderizando pág. ${i} de ${totalPages}...`;
@@ -150,7 +152,7 @@
 
             await new Promise(r => setTimeout(r, 20));
 
-            const page = await globalPdfJsDoc.getPage(i);
+            const page = await pdfJsDoc.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
 
             const pageContainer = document.createElement('div');
@@ -174,14 +176,13 @@
         inicializarEventos();
     }
 
-    // 5. Fábrica de Tarjas (Com botões internos para sobreviver ao overflow: hidden)
+    // 5. Fábrica de Tarjas (Botões Internos e Resizer Protegido)
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '26px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         tarja.style.width = w; tarja.style.height = h;
         tarja.style.top = top; tarja.style.left = left;
 
-        // Container dos botões agora posicionado DENTRO da tarja (right: 2px, top: 2px)
         const controls = document.createElement('div');
         controls.style = "position:absolute; right:2px; top:2px; display:flex; gap:4px;";
 
@@ -202,37 +203,34 @@
         tarja.appendChild(controls);
         pageContainer.appendChild(tarja);
 
-        // Ações dos Botões
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
         
         btnConfirmar.onclick = (e) => { 
             e.stopPropagation(); 
             tarja.classList.add('confirmada'); 
-            controls.style.display = 'none'; // Esconde botões ao confirmar
+            controls.style.display = 'none';
             tarja.title = "Clique para editar novamente";
         };
 
-        // Permite reabrir a edição caso o usuário clique na tarja confirmada (preta)
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
-                controls.style.display = 'flex'; // Volta os botões
+                controls.style.display = 'flex';
                 tarja.title = "";
             }
         };
 
-        // Lógica de Arrasto Protegida
         let isDragging = false;
         let startX, startY;
 
         tarja.addEventListener('mousedown', function(e) {
             if (tarja.classList.contains('confirmada')) return; 
             
-            // Impede conflito de arrasto com o puxador nativo de resize do canto inferior direito
+            // Impede arrasto se clicou no puxador do CSS resize (Canto Inferior Direito)
             const rect = tarja.getBoundingClientRect();
             if (e.clientX > rect.right - 20 && e.clientY > rect.bottom - 20) return;
             
-            // Impede arrastar a tela caso clique exatamente em cima de um botão
+            // Impede arrasto se clicou em cima de um dos botões
             if (e.target === btnRemover || e.target === btnConfirmar) return;
 
             isDragging = true;
@@ -254,7 +252,7 @@
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // 6. Botões e Ações
+    // 6. Botões e Ações Principais
     function inicializarEventos() {
         document.getElementById('btn-add-manual').onclick = function() {
             const primeiraPagina = workspace.querySelector('.pdf-page-container');
@@ -273,10 +271,12 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
-                const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
+                // CÓPIA 3 para o Motor de Extração de Texto (Novo clone de memória)
+                const bufferForScan = masterArrayBuffer.slice(0);
+                const scanPdfJsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(bufferForScan) }).promise;
                 
-                // Correção vital: Usa o cache (globalPdfJsDoc) em vez de ler o documento novamente!
-                const totalPages = globalPdfJsDoc.numPages;
+                const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
+                const totalPages = scanPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
                 for (let i = 1; i <= totalPages; i++) {
@@ -287,8 +287,7 @@
                     
                     await new Promise(r => setTimeout(r, 20));
 
-                    // Usa o cache também aqui
-                    const page = await globalPdfJsDoc.getPage(i);
+                    const page = await scanPdfJsDoc.getPage(i);
                     const textContent = await page.getTextContent();
                     const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
 
