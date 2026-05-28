@@ -1,16 +1,27 @@
+Excelente observação! A experiência de uso precisa ser o mais fluida possível.
+
+Implementei as três correções matemáticas e lógicas que você pediu:
+
+1. **A Tarja Manual Inteligente:** Criei um algoritmo (`getMostVisiblePage`) que lê a posição da barra de rolagem. Agora, quando você clicar no botão "Criar Nova Tarja", ele vai injetar a caixa **exatamente no meio da tela que você está olhando**, na página correspondente, sem você precisar voltar lá pro topo do documento.
+2. **CNPJ Removido:** A expressão regular foi limpada. O sistema não vai mais grifar CNPJs, focando exclusivamente na regra do dado pessoal (CPF).
+3. **Assinatura Gov.br:** Adicionei padrões heurísticos específicos (`gov.br` e `Documento assinado digitalmente`). Como os metadados do PDF variam muito, o sistema vai achar essas frases e grifá-las de vermelho. Assim, a tarja já nasce em cima da assinatura e você só precisará usar a "bordinha" de redimensionar da tarja para esticá-la cobrindo a assinatura toda e confirmar.
+
+Abra o **Console (`F12`)** na aba da Wikipedia vazia, cole o código abaixo e dê `Enter` para testarmos. Assim que homologar, pode subir para o GitHub:
+
+```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos - Botões ancorados e protegidos contra o "overflow" do redimensionamento
+    // 1. Estilos 
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 90px; min-height: 40px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
@@ -99,7 +110,7 @@
         });
     }
 
-    // 5. Fluxo de Upload Seguro
+    // 5. Fluxo de Upload Definitivo
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -178,7 +189,7 @@
         inicializarEventos();
     }
 
-    // 6. Fábrica de Tarjas (Com lógica de Edição Pós-Fixação Integrada)
+    // 6. Fábrica de Tarjas Inteligentes
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
@@ -212,7 +223,7 @@
             tarja.title = "Clique para editar novamente";
         };
 
-        // LÓGICA DE EDIÇÃO: Se clicar em uma tarja que já está preta, ela volta a ser vermelha/editável
+        // Permite reedição (Clica na tarja preta -> volta a ser vermelha e ajustável)
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
@@ -228,9 +239,7 @@
             if (tarja.classList.contains('confirmada')) return; 
             
             const rect = tarja.getBoundingClientRect();
-            // Ignora o arrasto caso o clique seja no canto inferior direito (resize nativo)
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
-            // Ignora o arrasto se o clique for nos botões
             if (e.target.tagName.toLowerCase() === 'button') return;
 
             isDragging = true;
@@ -252,21 +261,59 @@
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // 7. Eventos de Ação Definitivos (Matemática Geométrica da Tela Resolvida)
+    // Algoritmo que calcula qual página o usuário está olhando agora
+    function getPaginaMaisVisivel() {
+        const pages = document.querySelectorAll('.pdf-page-container');
+        if (!pages.length) return null;
+
+        let maxVisibleArea = 0;
+        let visiblePage = pages[0]; // fallback
+        const viewHeight = window.innerHeight;
+
+        pages.forEach(page => {
+            const rect = page.getBoundingClientRect();
+            // Verifica o quanto da página está dentro da tela
+            const visibleTop = Math.max(0, rect.top);
+            const visibleBottom = Math.min(viewHeight, rect.bottom);
+            const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+
+            if (visibleHeight > maxVisibleArea) {
+                maxVisibleArea = visibleHeight;
+                visiblePage = page;
+            }
+        });
+        return visiblePage;
+    }
+
+    // 7. Eventos de Ação (Com a nova lógica de Escaneamento)
     function inicializarEventos() {
+        
+        // EVENTO: Inserir tarja manual na página atual focada pelo usuário
         document.getElementById('btn-add-manual').onclick = function() {
-            const primeiraPagina = workspace.querySelector('.pdf-page-container');
-            if (primeiraPagina) injetarTarjaNaPagina(primeiraPagina);
+            const paginaAtual = getPaginaMaisVisivel();
+            if (paginaAtual) {
+                // Calcula a altura da rolagem para a tarja aparecer bem no meio da tela do usuário
+                const rect = paginaAtual.getBoundingClientRect();
+                const viewCenterY = window.innerHeight / 2;
+                let topPx = viewCenterY - rect.top;
+                
+                // Travas de segurança para a tarja não sair da borda da folha
+                if (topPx < 0) topPx = 40;
+                if (topPx > rect.height) topPx = rect.height - 50;
+
+                injetarTarjaNaPagina(paginaAtual, '160px', '40px', `${topPx}px`, '40px');
+            }
         };
 
-        // Evento de Aprovação em Lote
+        // EVENTO: Confirmar Todas em Lote
         document.getElementById('btn-confirm-all').onclick = function() {
             const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
             pendentes.forEach(btn => btn.click());
             alert(`${pendentes.length} tarjas foram fixadas de uma só vez!`);
-            this.style.display = 'none'; // Esconde o botão após uso
+            this.style.display = 'none'; 
         };
 
+        // EVENTO: Escaneamento (Regex ajustado sem CNPJ e com assinaturas Gov.br)
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
             const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -279,8 +326,8 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
-                // Regex de extração de CPF / CNPJ
-                const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
+                // O novo Regex detecta o CPF e padrões de assinatura gov
+                const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|Documento assinado digitalmente|gov\.br/gi;
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
@@ -299,27 +346,20 @@
 
                     if (pageContainer) {
                         textContent.items.forEach(item => {
-                            // Prevenção de quebra: Ignora marcações internas invisíveis do PDF que não têm metadados de texto
                             if (!item.str || !item.transform) return;
 
                             if (item.str.match(regex)) {
                                 tarjasDetectadas++;
                                 
-                                // O SEGREDO DO POSICIONAMENTO: converte o ponto matemático cru da página em pixels do canvas
                                 const [telaX, telaY] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
                                 
-                                // Calcula e escala a geometria da fonte
                                 const fontSizePdf = Math.sqrt((item.transform[2] * item.transform[2]) + (item.transform[3] * item.transform[3])) || Math.abs(item.transform[0]);
                                 const fontSizeTela = fontSizePdf * viewport.scale;
 
-                                // Calcula a largura da palavra capturada na tela
                                 const widthTela = item.width * viewport.scale;
-
-                                // Na web, telaY é medido pela linha de baixo do texto (baseline). 
-                                // Para fazer a tarja cobrir de cima para baixo, subtraímos a altura da fonte.
                                 const topTela = telaY - fontSizeTela;
 
-                                // Injetamos com folga (+6px largura, +4px altura) para garantir cobertura estética perfeita
+                                // Injeta com precisão (+6px largura, +4px altura por segurança)
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
@@ -328,7 +368,7 @@
 
                 scanStatus.innerText = `Finalizado!`;
                 setTimeout(() => {
-                    alert(`Varredura concluída. Encontramos ${tarjasDetectadas} dados sensíveis correspondentes aos padrões em todo o documento.`);
+                    alert(`Varredura concluída. Encontramos ${tarjasDetectadas} possíveis dados sensíveis/assinaturas.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
                     
@@ -344,6 +384,7 @@
             }
         };
 
+        // EVENTO: Salvar PDF e Gerar Download
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
@@ -363,6 +404,7 @@
                 const yTela = parseFloat(tarja.style.top);
                 const hTarja = tarja.offsetHeight;
                 
+                // pdf-lib tem a coordenada Y (0) no canto inferior esquerdo. Precisamos inverter.
                 const yPdf = (container.offsetHeight - yTela - hTarja) * scaleY; 
                 
                 paginaAlvo.drawRectangle({
@@ -384,3 +426,5 @@
 
     carregarDependencias();
 })();
+
+```
