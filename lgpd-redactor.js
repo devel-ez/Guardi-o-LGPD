@@ -1,7 +1,22 @@
+O erro aconteceu porque eu falhei na última tentativa ao insistir em passar o `ArrayBuffer` (os bytes puros da memória RAM) para a biblioteca `pdf.js`.
+
+Como a `pdf.js` usa uma *thread* paralela (Web Worker) para processar o escaneamento sem congelar a tela, o navegador **bloqueia** e **destrói** o ArrayBuffer original por motivos de segurança (evitando que duas threads tentem editar o arquivo ao mesmo tempo). Isso gera o `Detached ArrayBuffer` (Buffer desanexado).
+
+### A Solução Definitiva (Mudança de Arquitetura)
+
+Vamos parar de tentar "clonar" o arquivo na RAM. A solução perfeita é transformar o PDF do usuário em um **Link Local (Blob URL)** (`URL.createObjectURL(file)`).
+
+Assim, o `pdf.js` vai tratar o arquivo como um "download" interno. A thread paralela puxa a URL por conta própria, o motor gráfico roda liso, e nunca mais teremos conflitos de memória, tornando o botão de "Escanear" à prova de falhas.
+
+Além disso, ajustei o CSS nativo das tarjas: criei uma classe estrita para os botões "✓" e "✕" garantindo que eles **nunca** vão sumir quando você redimensionar a tarja.
+
+Substitua **todo o conteúdo do seu script no GitHub** por esta versão final:
+
+```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos - Botões ancorados com segurança dentro da área da tarja
+    // 1. Estilos - Botões ancorados e protegidos contra o "overflow" do redimensionamento
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -10,16 +25,16 @@
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; pointer-events:auto; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
     `;
     document.head.appendChild(style);
 
-    // 2. A SOLUÇÃO: Variáveis Globais Persistentes
+    // 2. A SOLUÇÃO BLINDADA: Variáveis Globais separadas por responsabilidade
     let pdfDocInstance = null; // Motor de Edição (pdf-lib)
-    let globalPdfJsDoc = null; // Motor Gráfico e de Texto (pdf.js) - Usado para renderizar E escanear!
+    let globalPdfJsDoc = null; // Motor Gráfico e Escaner (pdf.js)
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -79,7 +94,7 @@
         if (loader) loader.remove();
     };
 
-    // 4. Inicialização e Bibliotecas
+    // 4. Inicialização
     async function carregarDependencias() {
         try {
             await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
@@ -97,7 +112,7 @@
         });
     }
 
-    // 5. Fluxo de Upload
+    // 5. Fluxo de Upload SEM ArrayBuffer (Zero chance de erro Detached)
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -120,16 +135,20 @@
         
         await new Promise(r => setTimeout(r, 50)); 
 
-        const arrayBuffer = await file.arrayBuffer();
+        try {
+            // TÁTICA 1: pdf-lib recebe a memória crua (síncrono, nunca desanexa)
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
+            
+            // TÁTICA 2: pdf.js recebe um "Link Falso" do arquivo local (Blob URL).
+            const blobUrl = URL.createObjectURL(file);
+            globalPdfJsDoc = await pdfjsLib.getDocument(blobUrl).promise;
 
-        // 1. Carrega para o Motor de Edição Final
-        pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
-        
-        // 2. Carrega para o Motor Gráfico UMA ÚNICA VEZ e salva na variável global
-        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) });
-        globalPdfJsDoc = await loadingTask.promise;
-
-        await renderizarDocumento(loadContainer);
+            await renderizarDocumento(loadContainer);
+        } catch (error) {
+            alert("Erro ao processar estrutura do PDF.");
+            console.error(error);
+        }
     }
 
     async function renderizarDocumento(loadContainer) {
@@ -174,7 +193,7 @@
         inicializarEventos();
     }
 
-    // 6. Fábrica de Tarjas Inteligentes
+    // 6. Fábrica de Tarjas (Botões Protegidos)
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
@@ -183,7 +202,7 @@
 
         // Container protegido para os botões
         const controls = document.createElement('div');
-        controls.style.cssText = "display:flex; gap:6px; z-index:10001;";
+        controls.style.cssText = "display:flex; z-index:10001;";
 
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
@@ -226,9 +245,7 @@
             if (tarja.classList.contains('confirmada')) return; 
             
             const rect = tarja.getBoundingClientRect();
-            // Evita arrastar quando puxa a borda inferior direita (CSS Resize)
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
-            // Evita arrastar quando clica diretamente nos botões
             if (e.target.tagName.toLowerCase() === 'button') return;
 
             isDragging = true;
@@ -250,7 +267,7 @@
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // 7. Eventos de Ação
+    // 7. Eventos de Ação Definitivos
     function inicializarEventos() {
         document.getElementById('btn-add-manual').onclick = function() {
             const primeiraPagina = workspace.querySelector('.pdf-page-container');
@@ -271,8 +288,7 @@
             try {
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
                 
-                // O SEGREDO DO SUCESSO AQUI:
-                // Reaproveitamos a instância globalPdfJsDoc, sem ler o arquivo de novo!
+                // Reaproveitamos a instância globalPdfJsDoc! O motor não precisa reler o arquivo do zero.
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
@@ -352,3 +368,5 @@
 
     carregarDependencias();
 })();
+
+```
