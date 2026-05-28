@@ -1,42 +1,25 @@
-A imagem que você mandou foi excelente para matar os dois problemas de uma vez só!
-
-Como você também atua na área de engenharia de software, vai entender rapidamente o que aconteceu por baixo dos panos e como vamos neutralizar isso com uma tática definitiva.
-
-### 1. O Inimigo: `Detached ArrayBuffer`
-
-O PDF.js usa *Web Workers* (threads separadas) para não congelar a tela. Quando passamos o `ArrayBuffer` da memória para ele, o navegador transfere a posse (ownership) dessa memória por questões de segurança. O bloco fica "desanexado" (Detached) da thread principal. A técnica de clonagem que tentamos antes falhou porque os navegadores modernos linkam as cópias ao invés de duplicá-las na RAM para poupar recursos.
-
-**A Tática:** Vamos parar de brigar com a RAM. Vamos pegar o arquivo físico (`File`) e gerar uma URL local temporária dele (`URL.createObjectURL`). O PDF.js vai tratar isso como um download interno isolado, garantindo 100% de imunidade contra falhas de memória.
-
-### 2. O Sumiço dos Botões na Tarja
-
-Aquele quadradinho vermelho no canto inferior direito da sua imagem é o resizer nativo do Chrome. Para ele funcionar, o CSS obriga o uso de `overflow: hidden`. Isso acabou "engolindo" os seus botões de confirmar e fechar que estavam pendurados para fora da borda.
-
-**A Tática:** Remodelei a construção da tarja usando `Flexbox` com estilos inline estritos para forçar os botões a ficarem desenhados do lado de dentro.
-
----
-
-Substitua **100% do código** no seu repositório por esta versão blindada. E lembre-se de usar aquele favorito com o `?v='+Date.now()` para forçar o Chrome a puxar essa atualização na hora!
-
-```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos Base
+    // 1. Estilos - Botões ancorados com segurança dentro da área da tarja
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 80px; min-height: 35px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 90px; min-height: 40px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; pointer-events:auto; }
+        .btn-tarja-ctrl:hover { transform: scale(1.1); }
+        .btn-tarja-ctrl.remover { background: #dc2626; }
+        .btn-tarja-ctrl.confirmar { background: #059669; }
     `;
     document.head.appendChild(style);
 
-    // 2. Variáveis Globais (Arquitetura Object URL)
-    let pdfDocInstance = null; // Instância editável do pdf-lib
-    let globalPdfUrl = null;   // URL Blindada contra Detached ArrayBuffer
+    // 2. A SOLUÇÃO: Variáveis Globais Persistentes
+    let pdfDocInstance = null; // Motor de Edição (pdf-lib)
+    let globalPdfJsDoc = null; // Motor Gráfico e de Texto (pdf.js) - Usado para renderizar E escanear!
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -92,7 +75,6 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
 
     document.getElementById('close-lgpd-ui').onclick = () => {
         root.remove(); workspace.remove();
-        if (globalPdfUrl) URL.revokeObjectURL(globalPdfUrl); // Libera memória
         const loader = document.getElementById('lgpd-script-loader');
         if (loader) loader.remove();
     };
@@ -115,7 +97,7 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
         });
     }
 
-    // 5. Fluxo de Upload Blindado
+    // 5. Fluxo de Upload
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -135,15 +117,18 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
+        
         await new Promise(r => setTimeout(r, 50)); 
 
-        // TÁTICA 1: Gerar URL estática do arquivo
-        globalPdfUrl = URL.createObjectURL(file);
-
-        // TÁTICA 2: Carregar PDF-Lib via conversão moderna (ArrayBuffer nativo)
         const arrayBuffer = await file.arrayBuffer();
-        pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
+
+        // 1. Carrega para o Motor de Edição Final
+        pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
         
+        // 2. Carrega para o Motor Gráfico UMA ÚNICA VEZ e salva na variável global
+        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) });
+        globalPdfJsDoc = await loadingTask.promise;
+
         await renderizarDocumento(loadContainer);
     }
 
@@ -155,9 +140,7 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
         const loadPercent = document.getElementById('lgpd-load-percent');
         const loadBar = document.getElementById('lgpd-load-bar');
 
-        // O motor consome a URL, sem tocar na nossa RAM principal
-        const pdfJsDoc = await pdfjsLib.getDocument(globalPdfUrl).promise;
-        const totalPages = pdfJsDoc.numPages;
+        const totalPages = globalPdfJsDoc.numPages;
 
         for (let i = 1; i <= totalPages; i++) {
             loadStatus.innerText = `Renderizando pág. ${i} de ${totalPages}...`;
@@ -167,7 +150,7 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
 
             await new Promise(r => setTimeout(r, 20));
 
-            const page = await pdfJsDoc.getPage(i);
+            const page = await globalPdfJsDoc.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
 
             const pageContainer = document.createElement('div');
@@ -191,32 +174,33 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
         inicializarEventos();
     }
 
-    // 6. Fábrica de Tarjas (Botões 100% Protegidos)
-    function injetarTarjaNaPagina(pageContainer, w = '160px', h = '35px', top = '40px', left = '40px') {
+    // 6. Fábrica de Tarjas Inteligentes
+    function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         tarja.style.width = w; tarja.style.height = h;
         tarja.style.top = top; tarja.style.left = left;
 
-        // Botões Inline sem depender do CSS externo
+        // Container protegido para os botões
         const controls = document.createElement('div');
-        controls.style.cssText = "display:flex; gap:6px;";
+        controls.style.cssText = "display:flex; gap:6px; z-index:10001;";
 
         const btnRemover = document.createElement('button');
+        btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
         btnRemover.title = "Excluir Tarja";
-        btnRemover.style.cssText = "background:#dc2626; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; width:26px; height:26px; display:flex; align-items:center; justify-content:center; z-index:10000; box-shadow:0 2px 4px rgba(0,0,0,0.3);";
 
         const btnConfirmar = document.createElement('button');
+        btnConfirmar.className = 'btn-tarja-ctrl confirmar';
         btnConfirmar.innerHTML = '✓';
         btnConfirmar.title = "Confirmar Tarja";
-        btnConfirmar.style.cssText = "background:#059669; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; width:26px; height:26px; display:flex; align-items:center; justify-content:center; z-index:10000; box-shadow:0 2px 4px rgba(0,0,0,0.3);";
 
         controls.appendChild(btnRemover);
         controls.appendChild(btnConfirmar);
         tarja.appendChild(controls);
         pageContainer.appendChild(tarja);
 
+        // Ações de clique
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
         
         btnConfirmar.onclick = (e) => { 
@@ -234,18 +218,18 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
             }
         };
 
+        // Arrastar Seguro
         let isDragging = false;
         let startX, startY;
 
         tarja.addEventListener('mousedown', function(e) {
             if (tarja.classList.contains('confirmada')) return; 
             
-            // Impede conflito com Resize nativo do canto inferior direito
             const rect = tarja.getBoundingClientRect();
+            // Evita arrastar quando puxa a borda inferior direita (CSS Resize)
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
-            
-            // Protege o clique direto nos botões
-            if (e.target === btnRemover || e.target === btnConfirmar) return;
+            // Evita arrastar quando clica diretamente nos botões
+            if (e.target.tagName.toLowerCase() === 'button') return;
 
             isDragging = true;
             startX = e.clientX - tarja.offsetLeft;
@@ -266,7 +250,7 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // 7. Eventos Principais
+    // 7. Eventos de Ação
     function inicializarEventos() {
         document.getElementById('btn-add-manual').onclick = function() {
             const primeiraPagina = workspace.querySelector('.pdf-page-container');
@@ -285,11 +269,11 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
             await new Promise(r => setTimeout(r, 50));
 
             try {
-                // Aqui o erro morre: O Motor carrega o PDF direto da URL limpa
-                const scanPdfJsDoc = await pdfjsLib.getDocument(globalPdfUrl).promise;
-                
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
-                const totalPages = scanPdfJsDoc.numPages;
+                
+                // O SEGREDO DO SUCESSO AQUI:
+                // Reaproveitamos a instância globalPdfJsDoc, sem ler o arquivo de novo!
+                const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
                 for (let i = 1; i <= totalPages; i++) {
@@ -300,7 +284,7 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
                     
                     await new Promise(r => setTimeout(r, 20));
 
-                    const page = await scanPdfJsDoc.getPage(i);
+                    const page = await globalPdfJsDoc.getPage(i);
                     const textContent = await page.getTextContent();
                     const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
 
@@ -308,7 +292,7 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
                         textContent.items.forEach(item => {
                             if (regex.test(item.str)) {
                                 tarjasDetectadas++;
-                                injetarTarjaNaPagina(pageContainer, '160px', '35px');
+                                injetarTarjaNaPagina(pageContainer, '160px', '40px');
                             }
                         });
                     }
@@ -368,5 +352,3 @@ Substitua **100% do código** no seu repositório por esta versão blindada. E l
 
     carregarDependencias();
 })();
-
-```
