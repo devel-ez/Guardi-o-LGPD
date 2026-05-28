@@ -5,12 +5,12 @@
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 90px; min-height: 40px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
@@ -99,7 +99,7 @@
         });
     }
 
-    // 5. Fluxo de Upload
+    // 5. Fluxo de Upload Seguro
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -119,6 +119,7 @@
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
+        
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
@@ -177,7 +178,7 @@
         inicializarEventos();
     }
 
-    // 6. Fábrica de Tarjas Inteligentes
+    // 6. Fábrica de Tarjas (Com lógica de Edição Pós-Fixação Integrada)
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
@@ -211,7 +212,7 @@
             tarja.title = "Clique para editar novamente";
         };
 
-        // LÓGICA DE EDIÇÃO PÓS-FIXAÇÃO
+        // LÓGICA DE EDIÇÃO: Se clicar em uma tarja que já está preta, ela volta a ser vermelha/editável
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
@@ -227,7 +228,9 @@
             if (tarja.classList.contains('confirmada')) return; 
             
             const rect = tarja.getBoundingClientRect();
+            // Ignora o arrasto caso o clique seja no canto inferior direito (resize nativo)
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
+            // Ignora o arrasto se o clique for nos botões
             if (e.target.tagName.toLowerCase() === 'button') return;
 
             isDragging = true;
@@ -249,17 +252,19 @@
         document.addEventListener('mouseup', () => isDragging = false);
     }
 
-    // 7. Eventos de Ação (A MATEMÁTICA CORRIGIDA ESTÁ AQUI)
+    // 7. Eventos de Ação Definitivos (Matemática Geométrica da Tela Resolvida)
     function inicializarEventos() {
         document.getElementById('btn-add-manual').onclick = function() {
             const primeiraPagina = workspace.querySelector('.pdf-page-container');
             if (primeiraPagina) injetarTarjaNaPagina(primeiraPagina);
         };
 
+        // Evento de Aprovação em Lote
         document.getElementById('btn-confirm-all').onclick = function() {
             const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
             pendentes.forEach(btn => btn.click());
-            alert(`${pendentes.length} tarjas foram fixadas de uma vez!`);
+            alert(`${pendentes.length} tarjas foram fixadas de uma só vez!`);
+            this.style.display = 'none'; // Esconde o botão após uso
         };
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -274,6 +279,7 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
+                // Regex de extração de CPF / CNPJ
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
@@ -293,27 +299,27 @@
 
                     if (pageContainer) {
                         textContent.items.forEach(item => {
-                            // Proteção estrutural: Ignora marcadores vazios do PDF
+                            // Prevenção de quebra: Ignora marcações internas invisíveis do PDF que não têm metadados de texto
                             if (!item.str || !item.transform) return;
 
                             if (item.str.match(regex)) {
                                 tarjasDetectadas++;
                                 
-                                // O SEGREDO DO POSICIONAMENTO:
-                                // Converte o Ponto Cartesiano (PDF) para o Ponto da Tela (Monitor) de forma nativa e segura
+                                // O SEGREDO DO POSICIONAMENTO: converte o ponto matemático cru da página em pixels do canvas
                                 const [telaX, telaY] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
                                 
-                                // Extrai a altura da fonte escalonada
+                                // Calcula e escala a geometria da fonte
                                 const fontSizePdf = Math.sqrt((item.transform[2] * item.transform[2]) + (item.transform[3] * item.transform[3])) || Math.abs(item.transform[0]);
                                 const fontSizeTela = fontSizePdf * viewport.scale;
 
-                                // Extrai a largura exata da palavra na tela
+                                // Calcula a largura da palavra capturada na tela
                                 const widthTela = item.width * viewport.scale;
 
-                                // telaY aponta para o "chão" da letra (baseline). Subtraímos a fonte para bater o "teto" (top).
+                                // Na web, telaY é medido pela linha de baixo do texto (baseline). 
+                                // Para fazer a tarja cobrir de cima para baixo, subtraímos a altura da fonte.
                                 const topTela = telaY - fontSizeTela;
 
-                                // Injeta com uma sobra milimétrica para a tarja cobrir bordas e pontos arredondados (+6px largura, +4px altura)
+                                // Injetamos com folga (+6px largura, +4px altura) para garantir cobertura estética perfeita
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
@@ -322,7 +328,7 @@
 
                 scanStatus.innerText = `Finalizado!`;
                 setTimeout(() => {
-                    alert(`Varredura concluída. Encontramos ${tarjasDetectadas} possíveis dados sensíveis.`);
+                    alert(`Varredura concluída. Encontramos ${tarjasDetectadas} dados sensíveis correspondentes aos padrões em todo o documento.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
                     
