@@ -1,25 +1,25 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos - Botões ancorados e protegidos contra o "overflow" do redimensionamento
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 90px; min-height: 40px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS BLINDADAS
-    let pdfDocInstance = null; // Motor de Edição (pdf-lib)
-    let globalPdfJsDoc = null; // Motor Gráfico e Escaner (pdf.js)
+    // 2. VARIÁVEIS GLOBAIS
+    let pdfDocInstance = null;
+    let globalPdfJsDoc = null;
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -57,6 +57,8 @@
                     </div>
                     <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#059669;"></div></div>
                 </div>
+
+                <button id="btn-confirm-all" style="width:100%;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;display:none;">✅ Confirmar Todas as Sugestões</button>
 
                 <button id="btn-add-manual" style="width:100%;padding:10px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">➕ Criar Nova Tarja Manual</button>
                 <hr style="border:0;border-top:1px solid #e2e8f0;">
@@ -97,7 +99,7 @@
         });
     }
 
-    // 5. Fluxo de Upload Definitivo
+    // 5. Fluxo de Upload
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -117,15 +119,12 @@
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
-        
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
-            // pdf-lib recebe a memória bruta
             const arrayBuffer = await file.arrayBuffer();
             pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
             
-            // pdf.js recebe APENAS A URL DO ARQUIVO LOCAL
             const objectUrl = URL.createObjectURL(file);
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
 
@@ -212,6 +211,7 @@
             tarja.title = "Clique para editar novamente";
         };
 
+        // LÓGICA DE EDIÇÃO: Se clicar em uma tarja preta, ela volta a ser vermelha/editável
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
@@ -256,6 +256,13 @@
             if (primeiraPagina) injetarTarjaNaPagina(primeiraPagina);
         };
 
+        // Evento de Confirmar Todas as Tarjas em Lote
+        document.getElementById('btn-confirm-all').onclick = function() {
+            const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
+            pendentes.forEach(btn => btn.click());
+            alert(`${pendentes.length} tarjas foram fixadas com sucesso!`);
+        };
+
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
             const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -268,6 +275,7 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
+                // Regex para capturar CPF e CNPJ
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
@@ -281,14 +289,27 @@
                     await new Promise(r => setTimeout(r, 20));
 
                     const page = await globalPdfJsDoc.getPage(i);
+                    // Precisamos do viewport da página para calcular as coordenadas exatas da tela
+                    const viewport = page.getViewport({ scale: 1.5 });
                     const textContent = await page.getTextContent();
                     const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
 
                     if (pageContainer) {
                         textContent.items.forEach(item => {
-                            if (regex.test(item.str)) {
+                            if (item.str.match(regex)) {
                                 tarjasDetectadas++;
-                                injetarTarjaNaPagina(pageContainer, '160px', '40px');
+                                
+                                // CÁLCULO PRECISO DO POSICIONAMENTO DA CAIXA DE TEXTO
+                                // pdfjsLib.util.transform mapeia a matriz do documento para a matriz do monitor
+                                const tx = pdfjsLib.util.transform(viewport.transform, item.transform);
+                                
+                                const fontSize = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                                const left = tx[4];
+                                const top = tx[5] - fontSize; // tx[5] é o limite de baixo da fonte.
+                                const width = item.width * viewport.scale;
+                                
+                                // Injeta a tarja dando um leve padding (+4px) para não cortar as beiradas
+                                injetarTarjaNaPagina(pageContainer, `${width + 4}px`, `${fontSize + 6}px`, `${top - 3}px`, `${left - 2}px`);
                             }
                         });
                     }
@@ -296,9 +317,14 @@
 
                 scanStatus.innerText = `Finalizado!`;
                 setTimeout(() => {
-                    alert(`Varredura completa. ${tarjasDetectadas} possíveis dados sensíveis foram encontrados.`);
+                    alert(`Varredura completa. ${tarjasDetectadas} possíveis dados sensíveis foram encontrados nas páginas.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
+                    
+                    // Exibe o botão de Confirmar Todas se achar algo
+                    if (tarjasDetectadas > 0) {
+                        document.getElementById('btn-confirm-all').style.display = 'block';
+                    }
                 }, 400);
 
             } catch (err) {
