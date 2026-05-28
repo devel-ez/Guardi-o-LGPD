@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos 
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -17,10 +17,11 @@
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS BLINDADAS
-    let originalArrayBuffer = null; // A MAGIA ESTÁ AQUI: Guarda o PDF original intacto
+    // 2. VARIÁVEIS GLOBAIS
+    let pdfDocInstance = null; 
     let globalPdfJsDoc = null;
     let objectUrl = null; 
+    let originalArrayBuffer = null;
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -50,11 +51,10 @@
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:12px;">
                 <div style="background:#e0f2fe;padding:10px;border-radius:6px;font-size:11px;color:#0369a1;line-height:1.4;">
-                    📄 Selecione o tipo de análise correspondente ao seu documento.
+                    📄 Use as ferramentas abaixo para higienizar dados sensíveis.
                 </div>
 
-                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear PDF de Texto (Rápido)</button>
-                <button id="btn-ocr-scan" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">📷 Escanear Documento Escaneado (OCR)</button>
+                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear Documento (Modo Inteligente)</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
@@ -128,8 +128,9 @@
         document.getElementById('lgpd-actions-panel').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
         document.getElementById('btn-confirm-all').style.display = 'none';
-        originalArrayBuffer = null;
+        pdfDocInstance = null;
         globalPdfJsDoc = null;
+        originalArrayBuffer = null;
         if(objectUrl) URL.revokeObjectURL(objectUrl);
         fileInput.value = ""; 
     };
@@ -144,8 +145,8 @@
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
-            // Guarda o binário original na memória global para salvamentos múltiplos
             originalArrayBuffer = await file.arrayBuffer();
+            pdfDocInstance = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
             
             objectUrl = URL.createObjectURL(file);
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
@@ -248,7 +249,7 @@
 
             isDragging = true;
             startX = e.clientX - tarja.offsetLeft;
-            startY = e.clientY - tarja.offsetTop;
+            startY = e.clientY - taroffsetTop;
         });
 
         document.addEventListener('mousemove', function(e) {
@@ -311,6 +312,7 @@
 
         const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}-\d{4}|Documento assinado digitalmente|gov\.br/gi;
 
+        // O GRANDE DIFERENCIAL: Escaneamento Híbrido (Nativo + OCR na mesma varredura)
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
             const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -325,21 +327,28 @@
             try {
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
+                let ocrCarregado = false; // Só baixa a IA pesada se o documento realmente tiver páginas escaneadas
 
                 for (let i = 1; i <= totalPages; i++) {
-                    scanStatus.innerText = `Lendo Texto Pág. ${i}/${totalPages}...`;
-                    let pct = Math.round((i / totalPages) * 100);
-                    scanBar.style.width = `${pct}%`;
-                    scanPercent.innerText = `${pct}%`;
-                    
-                    await new Promise(r => setTimeout(r, 20));
-
                     const page = await globalPdfJsDoc.getPage(i);
                     const viewport = page.getViewport({ scale: 1.5 });
                     const textContent = await page.getTextContent();
                     const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
 
-                    if (pageContainer) {
+                    if (!pageContainer) continue;
+
+                    // Lógica para decidir se a página tem texto nativo legível ou se é uma imagem vazia
+                    const textoLimpo = textContent.items.map(item => item.str).join('').trim();
+                    const temTextoNativo = textoLimpo.length > 20; // Se a folha inteira tiver menos de 20 letras, assume-se que é imagem.
+
+                    if (temTextoNativo) {
+                        // === MODO RÁPIDO: TEXTO NATIVO ===
+                        scanStatus.innerText = `Pág. ${i}/${totalPages}: Lendo texto nativo...`;
+                        let pct = Math.round((i / totalPages) * 100);
+                        scanBar.style.width = `${pct}%`;
+                        scanPercent.innerText = `${pct}%`;
+                        await new Promise(r => setTimeout(r, 20));
+
                         textContent.items.forEach(item => {
                             if (!item.str || !item.transform) return;
 
@@ -354,16 +363,53 @@
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
+
+                    } else {
+                        // === MODO IA: VISÃO COMPUTACIONAL (OCR) ===
+                        if (!ocrCarregado) {
+                            scanStatus.innerText = `Pág. ${i}: Imagem detectada. Ativando OCR (IA)...`;
+                            if (typeof Tesseract === 'undefined') {
+                                await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+                            }
+                            ocrCarregado = true;
+                        }
+
+                        const canvas = pageContainer.querySelector('canvas');
+                        
+                        const { data } = await Tesseract.recognize(canvas, 'por', {
+                            logger: m => {
+                                if(m.status === 'recognizing text') {
+                                    let localPct = Math.round(m.progress * 100);
+                                    scanStatus.innerText = `Pág. ${i}/${totalPages} (OCR): ${localPct}%`;
+                                    scanBar.style.width = `${localPct}%`;
+                                    scanPercent.innerText = `${localPct}%`;
+                                }
+                            }
+                        });
+
+                        data.lines.forEach(line => {
+                            if (line.text.match(regexPuro)) {
+                                tarjasDetectadas++;
+                                const bbox = line.bbox; 
+                                const width = bbox.x1 - bbox.x0;
+                                const height = bbox.y1 - bbox.y0;
+
+                                injetarTarjaNaPagina(pageContainer, `${width + 10}px`, `${height + 10}px`, `${bbox.y0 - 5}px`, `${bbox.x0 - 5}px`);
+                            }
+                        });
                     }
                 }
 
                 scanStatus.innerText = `Finalizado!`;
+                scanBar.style.width = `100%`;
+                scanPercent.innerText = `100%`;
+
                 setTimeout(() => {
-                    alert(`Varredura Nativa concluída. Encontramos ${tarjasDetectadas} dados sensíveis.`);
+                    alert(`Varredura Inteligente concluída. Encontramos ${tarjasDetectadas} dados matematicamente sensíveis.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
                     if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
-                }, 400);
+                }, 500);
 
             } catch (err) {
                 console.error(err);
@@ -372,76 +418,7 @@
             }
         };
 
-        // Escaneamento com IA (Tesseract)
-        document.getElementById('btn-ocr-scan').onclick = async function() {
-            const btn = this;
-            const scanContainer = document.getElementById('lgpd-scan-progress-container');
-            const scanStatus = document.getElementById('lgpd-scan-status');
-            const scanPercent = document.getElementById('lgpd-scan-percent');
-            const scanBar = document.getElementById('lgpd-scan-bar');
-
-            btn.disabled = true; btn.style.opacity = "0.6";
-            scanContainer.style.display = "block";
-            scanStatus.innerText = "Iniciando Rede Neural OCR...";
-            scanBar.style.width = "0%";
-            scanPercent.innerText = "0%";
-            await new Promise(r => setTimeout(r, 50));
-
-            try {
-                if (typeof Tesseract === 'undefined') {
-                    scanStatus.innerText = "Baixando Tesseract.js (~3MB)...";
-                    await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                }
-
-                const pageContainers = workspace.querySelectorAll('.pdf-page-container');
-                let tarjasDetectadas = 0;
-
-                for (let i = 0; i < pageContainers.length; i++) {
-                    const pageContainer = pageContainers[i];
-                    const canvas = pageContainer.querySelector('canvas');
-                    
-                    scanStatus.innerText = `Visão Computacional Pág. ${i+1}/${pageContainers.length}...`;
-                    let pct = Math.round(((i) / pageContainers.length) * 100);
-                    scanBar.style.width = `${pct}%`;
-                    scanPercent.innerText = `${pct}%`;
-
-                    const { data } = await Tesseract.recognize(canvas, 'por', {
-                        logger: m => {
-                            if(m.status === 'recognizing text') {
-                                let localPct = Math.round(m.progress * 100);
-                                scanStatus.innerText = `Lendo Pág. ${i+1}: ${localPct}%`;
-                            }
-                        }
-                    });
-
-                    data.lines.forEach(line => {
-                        if (line.text.match(regexPuro)) {
-                            tarjasDetectadas++;
-                            const bbox = line.bbox; 
-                            const width = bbox.x1 - bbox.x0;
-                            const height = bbox.y1 - bbox.y0;
-
-                            injetarTarjaNaPagina(pageContainer, `${width + 10}px`, `${height + 10}px`, `${bbox.y0 - 5}px`, `${bbox.x0 - 5}px`);
-                        }
-                    });
-                }
-
-                scanStatus.innerText = `Finalizado!`;
-                setTimeout(() => {
-                    alert(`Varredura por OCR (Imagem) concluída. Encontramos ${tarjasDetectadas} dados em imagens.`);
-                    scanContainer.style.display = "none";
-                    btn.disabled = false; btn.style.opacity = "1";
-                    if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
-                }, 400);
-
-            } catch(e) {
-                console.error(e);
-                scanStatus.innerText = "Erro no motor OCR.";
-                btn.disabled = false; btn.style.opacity = "1";
-            }
-        };
-
-        // Salvamento Multi-Sessão Seguro
+        // Salvamento Multi-Sessão
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
