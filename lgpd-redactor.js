@@ -17,7 +17,7 @@
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS
+    // 2. VARIÁVEIS GLOBAIS BLINDADAS
     let pdfDocInstance = null; // Motor de Edição (pdf-lib)
     let globalPdfJsDoc = null; // Motor Gráfico e Escaner (pdf.js)
 
@@ -121,12 +121,11 @@
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
-            // AQUI ESTÁ A CORREÇÃO MÁGICA:
-            // 1. pdf-lib consome a memória bruta
+            // pdf-lib recebe a memória bruta
             const arrayBuffer = await file.arrayBuffer();
             pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
             
-            // 2. pdf.js consome APENAS A URL DO ARQUIVO (Nenhum buffer é transferido ou desanexado)
+            // pdf.js recebe APENAS A URL DO ARQUIVO LOCAL
             const objectUrl = URL.createObjectURL(file);
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
 
