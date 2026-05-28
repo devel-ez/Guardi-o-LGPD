@@ -18,7 +18,7 @@
     document.head.appendChild(style);
 
     // 2. VARIÁVEIS GLOBAIS BLINDADAS
-    let pdfDocInstance = null; 
+    let originalArrayBuffer = null; // A MAGIA ESTÁ AQUI: Guarda o PDF original intacto
     let globalPdfJsDoc = null;
     let objectUrl = null; 
 
@@ -128,7 +128,7 @@
         document.getElementById('lgpd-actions-panel').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
         document.getElementById('btn-confirm-all').style.display = 'none';
-        pdfDocInstance = null;
+        originalArrayBuffer = null;
         globalPdfJsDoc = null;
         if(objectUrl) URL.revokeObjectURL(objectUrl);
         fileInput.value = ""; 
@@ -144,8 +144,8 @@
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
-            const arrayBuffer = await file.arrayBuffer();
-            pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
+            // Guarda o binário original na memória global para salvamentos múltiplos
+            originalArrayBuffer = await file.arrayBuffer();
             
             objectUrl = URL.createObjectURL(file);
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
@@ -199,7 +199,7 @@
         inicializarEventos();
     }
 
-    // 6. Fábrica de Tarjas Inteligentes
+    // 6. Fábrica de Tarjas
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
@@ -309,7 +309,6 @@
             this.style.display = 'none'; 
         };
 
-        // NOVO REGEX ULTRA-ABRANGENTE: CPF, Identidades de 8 a 11 dígitos, CEP, Telefones e Assinaturas
         const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}-\d{4}|Documento assinado digitalmente|gov\.br/gi;
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -352,7 +351,6 @@
                                 const widthTela = item.width * viewport.scale;
                                 const topTela = telaY - fontSizeTela;
 
-                                // Como o regex pega blocos inteiros, a tarja assumirá a largura da frase/número devolvido pelo PDF
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
@@ -361,7 +359,7 @@
 
                 scanStatus.innerText = `Finalizado!`;
                 setTimeout(() => {
-                    alert(`Varredura Nativa concluída. Encontramos ${tarjasDetectadas} dados matematicamente sensíveis.`);
+                    alert(`Varredura Nativa concluída. Encontramos ${tarjasDetectadas} dados sensíveis.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
                     if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
@@ -443,42 +441,57 @@
             }
         };
 
-        // Salvamento Definitivo
+        // Salvamento Multi-Sessão Seguro
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
 
-            const paginasPdfLib = pdfDocInstance.getPages();
+            const txtOriginal = this.innerHTML;
+            this.innerHTML = "⏳ Processando...";
+            this.disabled = true;
 
-            tarjas.forEach(tarja => {
-                const container = tarja.parentElement;
-                const pageNum = parseInt(container.getAttribute('data-page-number'));
-                const paginaAlvo = paginasPdfLib[pageNum - 1];
+            try {
+                // A MAGIA: Sempre recria o documento PDF a partir do ArrayBuffer limpo original!
+                const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
+                const paginasPdfLib = pdfDoc.getPages();
 
-                const { width: pdfWidth, height: pdfHeight } = paginaAlvo.getSize();
-                const scaleX = pdfWidth / container.offsetWidth;
-                const scaleY = pdfHeight / container.offsetHeight;
+                tarjas.forEach(tarja => {
+                    const container = tarja.parentElement;
+                    const pageNum = parseInt(container.getAttribute('data-page-number'));
+                    const paginaAlvo = paginasPdfLib[pageNum - 1];
 
-                const xPdf = parseFloat(tarja.style.left) * scaleX;
-                const yTela = parseFloat(tarja.style.top);
-                const hTarja = tarja.offsetHeight;
-                
-                const yPdf = (container.offsetHeight - yTela - hTarja) * scaleY; 
-                
-                paginaAlvo.drawRectangle({
-                    x: xPdf, y: yPdf,
-                    width: tarja.offsetWidth * scaleX, height: hTarja * scaleY,
-                    color: PDFLib.rgb(0, 0, 0)
+                    const { width: pdfWidth, height: pdfHeight } = paginaAlvo.getSize();
+                    const scaleX = pdfWidth / container.offsetWidth;
+                    const scaleY = pdfHeight / container.offsetHeight;
+
+                    const xPdf = parseFloat(tarja.style.left) * scaleX;
+                    const yTela = parseFloat(tarja.style.top);
+                    const hTarja = tarja.offsetHeight;
+                    
+                    const yPdf = (container.offsetHeight - yTela - hTarja) * scaleY; 
+                    
+                    paginaAlvo.drawRectangle({
+                        x: xPdf, y: yPdf,
+                        width: tarja.offsetWidth * scaleX, height: hTarja * scaleY,
+                        color: PDFLib.rgb(0, 0, 0)
+                    });
                 });
-            });
 
-            const pdfBytes = await pdfDocInstance.save();
-            const blob = new Blob([pdfBytes], { type: "application/pdf" });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = "documento_tratado_lgpd.pdf";
-            link.click();
-            alert("PDF baixado com sucesso!");
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: "application/pdf" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = "documento_tratado_lgpd.pdf";
+                link.click();
+                alert("PDF baixado com sucesso!");
+
+            } catch(e) {
+                console.error(e);
+                alert("Houve um erro na conversão do PDF.");
+            }
+
+            this.innerHTML = txtOriginal;
+            this.disabled = false;
         };
     }
 
