@@ -1,14 +1,3 @@
-Excelente observação! A experiência de uso precisa ser o mais fluida possível.
-
-Implementei as três correções matemáticas e lógicas que você pediu:
-
-1. **A Tarja Manual Inteligente:** Criei um algoritmo (`getMostVisiblePage`) que lê a posição da barra de rolagem. Agora, quando você clicar no botão "Criar Nova Tarja", ele vai injetar a caixa **exatamente no meio da tela que você está olhando**, na página correspondente, sem você precisar voltar lá pro topo do documento.
-2. **CNPJ Removido:** A expressão regular foi limpada. O sistema não vai mais grifar CNPJs, focando exclusivamente na regra do dado pessoal (CPF).
-3. **Assinatura Gov.br:** Adicionei padrões heurísticos específicos (`gov.br` e `Documento assinado digitalmente`). Como os metadados do PDF variam muito, o sistema vai achar essas frases e grifá-las de vermelho. Assim, a tarja já nasce em cima da assinatura e você só precisará usar a "bordinha" de redimensionar da tarja para esticá-la cobrindo a assinatura toda e confirmar.
-
-Abra o **Console (`F12`)** na aba da Wikipedia vazia, cole o código abaixo e dê `Enter` para testarmos. Assim que homologar, pode subir para o GitHub:
-
-```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
@@ -426,5 +415,3 @@ Abra o **Console (`F12`)** na aba da Wikipedia vazia, cole o código abaixo e d�
 
     carregarDependencias();
 })();
-
-```
