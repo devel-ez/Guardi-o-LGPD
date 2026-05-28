@@ -1,16 +1,16 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos
+    // 1. Estilos 
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 90px; min-height: 40px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:26px; height:26px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
@@ -122,7 +122,6 @@
         if (e.target.files.length > 0) processarArquivo(e.target.files[0]);
     };
 
-    // Botão de Reset (Carregar Novo Documento)
     document.getElementById('btn-new-doc').onclick = () => {
         workspace.innerHTML = "";
         workspace.style.display = 'none';
@@ -132,7 +131,7 @@
         pdfDocInstance = null;
         globalPdfJsDoc = null;
         if(objectUrl) URL.revokeObjectURL(objectUrl);
-        fileInput.value = ""; // Reseta o input file
+        fileInput.value = ""; 
     };
 
     async function processarArquivo(file) {
@@ -299,7 +298,7 @@
                 if (topPx < 0) topPx = 40;
                 if (topPx > rect.height) topPx = rect.height - 50;
 
-                injetarTarjaNaPagina(paginaAtual, '160px', '40px', `${topPx}px`, '40px');
+                injetarTarjaNaPagina(paginaAtual, '160px', '25px', `${topPx}px`, '40px');
             }
         };
 
@@ -310,8 +309,8 @@
             this.style.display = 'none'; 
         };
 
-        // Escaneamento Nativo (Texto Base) - Regex Tolerante a espaços
-        const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|Documento assinado digitalmente|gov\.br/gi;
+        // NOVO REGEX ULTRA-ABRANGENTE: CPF, Identidades de 8 a 11 dígitos, CEP, Telefones e Assinaturas
+        const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}-\d{4}|Documento assinado digitalmente|gov\.br/gi;
 
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
@@ -353,6 +352,7 @@
                                 const widthTela = item.width * viewport.scale;
                                 const topTela = telaY - fontSizeTela;
 
+                                // Como o regex pega blocos inteiros, a tarja assumirá a largura da frase/número devolvido pelo PDF
                                 injetarTarjaNaPagina(pageContainer, `${widthTela + 6}px`, `${fontSizeTela + 4}px`, `${topTela - 2}px`, `${telaX - 3}px`);
                             }
                         });
@@ -361,7 +361,7 @@
 
                 scanStatus.innerText = `Finalizado!`;
                 setTimeout(() => {
-                    alert(`Varredura Nativa concluída. Encontramos ${tarjasDetectadas} dados.`);
+                    alert(`Varredura Nativa concluída. Encontramos ${tarjasDetectadas} dados matematicamente sensíveis.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
                     if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
@@ -374,7 +374,7 @@
             }
         };
 
-        // NOVO EVENTO: Escaneamento com IA Visão Computacional (OCR para Imagens)
+        // Escaneamento com IA (Tesseract)
         document.getElementById('btn-ocr-scan').onclick = async function() {
             const btn = this;
             const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -390,7 +390,6 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
-                // Injeta dinamicamente a biblioteca do Tesseract apenas se o botão for clicado
                 if (typeof Tesseract === 'undefined') {
                     scanStatus.innerText = "Baixando Tesseract.js (~3MB)...";
                     await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
@@ -408,7 +407,6 @@
                     scanBar.style.width = `${pct}%`;
                     scanPercent.innerText = `${pct}%`;
 
-                    // Processa a imagem do canvas do PDF com o Tesseract (Idioma: Português)
                     const { data } = await Tesseract.recognize(canvas, 'por', {
                         logger: m => {
                             if(m.status === 'recognizing text') {
@@ -418,16 +416,13 @@
                         }
                     });
 
-                    // Procura em cada linha reconhecida pela IA para evitar quebra de blocos
                     data.lines.forEach(line => {
                         if (line.text.match(regexPuro)) {
                             tarjasDetectadas++;
-                            // A genialidade aqui: O OCR usa as coordenadas em Pixels reais do Canvas! Não precisa de matemática.
-                            const bbox = line.bbox; // Retorna x0, y0, x1, y1
+                            const bbox = line.bbox; 
                             const width = bbox.x1 - bbox.x0;
                             const height = bbox.y1 - bbox.y0;
 
-                            // Injeta com uma sobra gordinha (padding) porque OCR pode não ser exato nas bordas
                             injetarTarjaNaPagina(pageContainer, `${width + 10}px`, `${height + 10}px`, `${bbox.y0 - 5}px`, `${bbox.x0 - 5}px`);
                         }
                     });
