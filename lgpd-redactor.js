@@ -321,42 +321,30 @@
                             if (!item.str.trim()) return;
                             const itemY = item.transform[5];
                             if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > toleranciaY) {
-                                linhaAtual = { y: itemY, tokens: [], texto: '' };
+                                linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
                                 linhas.push(linhaAtual);
                             }
+                            
+                            let sep = '';
+                            if (linhaAtual.tokens.length > 0) {
+                                const lastItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
+                                const distX = item.transform[4] - (lastItem.transform[4] + lastItem.width);
+                                // Se a distancia for maior que espaço de coluna longo, inserimos '|'
+                                // Isso impede que o regex de nome cruze colunas independentes
+                                sep = distX > 15 ? ' | ' : ' ';
+                            }
+                            
                             linhaAtual.tokens.push(item);
-                            linhaAtual.texto += (linhaAtual.texto ? ' ' : '') + item.str;
-                        });
-
-                        // Mapear cada caractere em linha.texto para o respectivo token PDF.js originário
-                        // Isso garante precisão pixel perfeito e não borra a seleção para a linha inteira (ex: tabelas)
-                        const charToToken = [];
-                        linha.tokens.forEach((token, idx) => {
-                            for(let i=0; i<token.str.length; i++) charToToken.push(token);
-                            if (idx < linha.tokens.length - 1) charToToken.push(token); // o espaço do join(' ')
-                        });
-
-                        // Helper para bounding box exato da MATCH string
-                        const marcarTrecho = (matchStart, matchLen) => {
-                            let startIndex = matchStart;
-                            let endIndex = matchStart + matchLen - 1;
-                            if (startIndex >= charToToken.length) return;
-                            if (endIndex >= charToToken.length) endIndex = charToToken.length - 1;
                             
-                            const first = charToToken[startIndex];
-                            const last = charToToken[endIndex];
-                            if (!first || !last) return;
+                            // Adicionar os caracteres do separador ao charMap para bater indice 1:1 com a RegExp
+                            for (let i = 0; i < sep.length; i++) linhaAtual.charMap.push(item);
+                            // Adicionar os caracteres reais do texto
+                            for (let i = 0; i < item.str.length; i++) linhaAtual.charMap.push(item);
                             
-                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                            const h = Math.max((fs * viewport.scale) + 6, 12);
-                            const w = Math.max(x1 - x0 + 4, 15);
-                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
-                        };
+                            linhaAtual.texto += sep + item.str;
+                        });
 
                         // --- PASS 1: Padrões específicos de dados sensíveis na Linha Inteira ---
-                        // Recompilar RegExp em varredura global para pegar os exatos bounds de tudo na linha
                         const regexesBusca = [
                             /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF Tolerante
                             /(?<!\d)(?:\d\s*){11}(?!\d)/gi, // CPF Raw Tolerante
@@ -369,30 +357,52 @@
                             /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
                             /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
                             /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi, // Nome c/ Label
-                            // Nome genérico (2+ Palavras Cased): 
+                            // Nome genérico (2+ Palavras Cased):
                             /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{1,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}))+\b/g
                         ];
 
-                        const textoLen = charToToken.length;
-                        // Usaremos um array de posicoes ja marcadas para evitar redundancias (ex: CPF e CPFRaw)
-                        const overlaps = new Uint8Array(textoLen); 
+                        linhas.forEach(linha => {
+                            const charToToken = linha.charMap;
+                            const textoLen = charToToken.length;
+                            const overlaps = new Uint8Array(textoLen); 
 
-                        regexesBusca.forEach(regex => {
-                            let match;
-                            while ((match = regex.exec(linha.texto)) !== null) {
-                                // checar overlap para evitar 2 caixas no mesmo dado
-                                let hasOverlap = false;
-                                for(let k=0; k<match[0].length; k++) {
-                                    if(overlaps[match.index + k]) { hasOverlap = true; break; }
-                                }
-                                if(!hasOverlap) {
-                                    tarjasDetectadas++;
-                                    marcarTrecho(match.index, match[0].length);
+                            // Helper para bounding box exato da MATCH string
+                            const marcarTrecho = (matchStart, matchLen) => {
+                                let startIndex = matchStart;
+                                let endIndex = matchStart + matchLen - 1;
+                                if (startIndex >= charToToken.length) return;
+                                if (endIndex >= charToToken.length) endIndex = charToToken.length - 1;
+                                
+                                const first = charToToken[startIndex];
+                                const last = charToToken[endIndex];
+                                if (!first || !last) return;
+                                
+                                const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                const h = Math.max((fs * viewport.scale) + 6, 12);
+                                const w = Math.max(x1 - x0 + 4, 15);
+                                injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
+                            };
+
+                            regexesBusca.forEach(regex => {
+                                let match;
+                                regex.lastIndex = 0; // reset regex para iterar desde o inicio
+                                while ((match = regex.exec(linha.texto)) !== null) {
+                                    // checar overlap para evitar 2 caixas no mesmo dado
+                                    let hasOverlap = false;
                                     for(let k=0; k<match[0].length; k++) {
-                                        overlaps[match.index + k] = 1;
+                                        if(overlaps[match.index + k]) { hasOverlap = true; break; }
+                                    }
+                                    if(!hasOverlap) {
+                                        tarjasDetectadas++;
+                                        marcarTrecho(match.index, match[0].length);
+                                        for(let k=0; k<match[0].length; k++) {
+                                            overlaps[match.index + k] = 1;
+                                        }
                                     }
                                 }
-                            }
+                            });
                         });
                     } else {
                         scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
