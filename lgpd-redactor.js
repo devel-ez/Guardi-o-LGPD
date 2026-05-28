@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos 
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -17,9 +17,10 @@
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS
+    // 2. VARIÁVEIS GLOBAIS BLINDADAS
     let pdfDocInstance = null; 
-    let globalPdfJsDoc = null; 
+    let globalPdfJsDoc = null;
+    let objectUrl = null; 
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -48,7 +49,12 @@
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:12px;">
-                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear LGPD Automático (Regex)</button>
+                <div style="background:#e0f2fe;padding:10px;border-radius:6px;font-size:11px;color:#0369a1;line-height:1.4;">
+                    📄 Selecione o tipo de análise correspondente ao seu documento.
+                </div>
+
+                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear PDF de Texto (Rápido)</button>
+                <button id="btn-ocr-scan" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">📷 Escanear Documento Escaneado (OCR)</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
@@ -61,8 +67,10 @@
                 <button id="btn-confirm-all" style="width:100%;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;display:none;">✅ Confirmar Todas as Sugestões</button>
 
                 <button id="btn-add-manual" style="width:100%;padding:10px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">➕ Criar Nova Tarja Manual</button>
-                <hr style="border:0;border-top:1px solid #e2e8f0;">
+                
+                <hr style="border:0;border-top:1px solid #e2e8f0;margin:4px 0;">
                 <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">💾 SALVAR PDF HIGIENIZADO</button>
+                <button id="btn-new-doc" style="width:100%;padding:10px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;margin-top:4px;">📄 Carregar Novo Documento</button>
             </div>
             
             <div id="lgpd-status-log" style="font-size:11px;color:#64748b;text-align:center;margin-top:auto;">Carregando infraestrutura...</div>
@@ -77,11 +85,12 @@
 
     document.getElementById('close-lgpd-ui').onclick = () => {
         root.remove(); workspace.remove();
+        if(objectUrl) URL.revokeObjectURL(objectUrl);
         const loader = document.getElementById('lgpd-script-loader');
         if (loader) loader.remove();
     };
 
-    // 4. Inicialização e Bibliotecas
+    // 4. Inicialização
     async function carregarDependencias() {
         try {
             await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
@@ -94,12 +103,12 @@
     }
 
     function loadScript(src) {
-        return new Promise((resolve) => {
-            const s = document.createElement('script'); s.src = src; s.onload = resolve; document.head.appendChild(s);
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
         });
     }
 
-    // 5. Fluxo de Upload 
+    // 5. Fluxo de Upload
     const dropzone = document.getElementById('lgpd-upload-area');
     const fileInput = document.getElementById('lgpd-file-input');
 
@@ -113,19 +122,33 @@
         if (e.target.files.length > 0) processarArquivo(e.target.files[0]);
     };
 
+    // Botão de Reset (Carregar Novo Documento)
+    document.getElementById('btn-new-doc').onclick = () => {
+        workspace.innerHTML = "";
+        workspace.style.display = 'none';
+        document.getElementById('lgpd-actions-panel').style.display = 'none';
+        document.getElementById('lgpd-upload-area').style.display = 'flex';
+        document.getElementById('btn-confirm-all').style.display = 'none';
+        pdfDocInstance = null;
+        globalPdfJsDoc = null;
+        if(objectUrl) URL.revokeObjectURL(objectUrl);
+        fileInput.value = ""; // Reseta o input file
+    };
+
     async function processarArquivo(file) {
         if (file.type !== "application/pdf") { alert("Selecione um PDF."); return; }
 
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
+        
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
             const arrayBuffer = await file.arrayBuffer();
             pdfDocInstance = await PDFLib.PDFDocument.load(arrayBuffer);
             
-            const objectUrl = URL.createObjectURL(file);
+            objectUrl = URL.createObjectURL(file);
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
 
             await renderizarDocumento(loadContainer);
@@ -190,12 +213,10 @@
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
-        btnRemover.title = "Excluir Tarja";
 
         const btnConfirmar = document.createElement('button');
         btnConfirmar.className = 'btn-tarja-ctrl confirmar';
         btnConfirmar.innerHTML = '✓';
-        btnConfirmar.title = "Confirmar Tarja";
 
         controls.appendChild(btnRemover);
         controls.appendChild(btnConfirmar);
@@ -208,15 +229,12 @@
             e.stopPropagation(); 
             tarja.classList.add('confirmada'); 
             controls.style.display = 'none';
-            tarja.title = "Clique para editar novamente";
         };
 
-        // Permite reedição
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
                 controls.style.display = 'flex';
-                tarja.title = "";
             }
         };
 
@@ -225,7 +243,6 @@
 
         tarja.addEventListener('mousedown', function(e) {
             if (tarja.classList.contains('confirmada')) return; 
-            
             const rect = tarja.getBoundingClientRect();
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
             if (e.target.tagName.toLowerCase() === 'button') return;
@@ -238,7 +255,6 @@
         document.addEventListener('mousemove', function(e) {
             if (!isDragging) return;
             let x = e.clientX - startX; let y = e.clientY - startY;
-            
             if (x < 0) x = 0; if (y < 0) y = 0;
             if (x + tarja.offsetWidth > pageContainer.offsetWidth) x = pageContainer.offsetWidth - tarja.offsetWidth;
             if (y + tarja.offsetHeight > pageContainer.offsetHeight) y = pageContainer.offsetHeight - tarja.offsetHeight;
@@ -271,7 +287,7 @@
         return visiblePage;
     }
 
-    // 7. Eventos de Ação 
+    // 7. Eventos de Ação
     function inicializarEventos() {
         
         document.getElementById('btn-add-manual').onclick = function() {
@@ -280,7 +296,6 @@
                 const rect = paginaAtual.getBoundingClientRect();
                 const viewCenterY = window.innerHeight / 2;
                 let topPx = viewCenterY - rect.top;
-                
                 if (topPx < 0) topPx = 40;
                 if (topPx > rect.height) topPx = rect.height - 50;
 
@@ -295,6 +310,9 @@
             this.style.display = 'none'; 
         };
 
+        // Escaneamento Nativo (Texto Base) - Regex Tolerante a espaços
+        const regexPuro = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|Documento assinado digitalmente|gov\.br/gi;
+
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
             const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -307,13 +325,11 @@
             await new Promise(r => setTimeout(r, 50));
 
             try {
-                // Regex ajustado (CPF e padrões gov)
-                const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|Documento assinado digitalmente|gov\.br/gi;
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
                 for (let i = 1; i <= totalPages; i++) {
-                    scanStatus.innerText = `Lendo pág. ${i} de ${totalPages}...`;
+                    scanStatus.innerText = `Lendo Texto Pág. ${i}/${totalPages}...`;
                     let pct = Math.round((i / totalPages) * 100);
                     scanBar.style.width = `${pct}%`;
                     scanPercent.innerText = `${pct}%`;
@@ -329,14 +345,11 @@
                         textContent.items.forEach(item => {
                             if (!item.str || !item.transform) return;
 
-                            if (item.str.match(regex)) {
+                            if (item.str.match(regexPuro)) {
                                 tarjasDetectadas++;
-                                
                                 const [telaX, telaY] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-                                
                                 const fontSizePdf = Math.sqrt((item.transform[2] * item.transform[2]) + (item.transform[3] * item.transform[3])) || Math.abs(item.transform[0]);
                                 const fontSizeTela = fontSizePdf * viewport.scale;
-
                                 const widthTela = item.width * viewport.scale;
                                 const topTela = telaY - fontSizeTela;
 
@@ -348,13 +361,10 @@
 
                 scanStatus.innerText = `Finalizado!`;
                 setTimeout(() => {
-                    alert(`Varredura concluída. Encontramos ${tarjasDetectadas} possíveis dados sensíveis/assinaturas.`);
+                    alert(`Varredura Nativa concluída. Encontramos ${tarjasDetectadas} dados.`);
                     scanContainer.style.display = "none";
                     btn.disabled = false; btn.style.opacity = "1";
-                    
-                    if (tarjasDetectadas > 0) {
-                        document.getElementById('btn-confirm-all').style.display = 'block';
-                    }
+                    if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
                 }, 400);
 
             } catch (err) {
@@ -364,6 +374,81 @@
             }
         };
 
+        // NOVO EVENTO: Escaneamento com IA Visão Computacional (OCR para Imagens)
+        document.getElementById('btn-ocr-scan').onclick = async function() {
+            const btn = this;
+            const scanContainer = document.getElementById('lgpd-scan-progress-container');
+            const scanStatus = document.getElementById('lgpd-scan-status');
+            const scanPercent = document.getElementById('lgpd-scan-percent');
+            const scanBar = document.getElementById('lgpd-scan-bar');
+
+            btn.disabled = true; btn.style.opacity = "0.6";
+            scanContainer.style.display = "block";
+            scanStatus.innerText = "Iniciando Rede Neural OCR...";
+            scanBar.style.width = "0%";
+            scanPercent.innerText = "0%";
+            await new Promise(r => setTimeout(r, 50));
+
+            try {
+                // Injeta dinamicamente a biblioteca do Tesseract apenas se o botão for clicado
+                if (typeof Tesseract === 'undefined') {
+                    scanStatus.innerText = "Baixando Tesseract.js (~3MB)...";
+                    await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+                }
+
+                const pageContainers = workspace.querySelectorAll('.pdf-page-container');
+                let tarjasDetectadas = 0;
+
+                for (let i = 0; i < pageContainers.length; i++) {
+                    const pageContainer = pageContainers[i];
+                    const canvas = pageContainer.querySelector('canvas');
+                    
+                    scanStatus.innerText = `Visão Computacional Pág. ${i+1}/${pageContainers.length}...`;
+                    let pct = Math.round(((i) / pageContainers.length) * 100);
+                    scanBar.style.width = `${pct}%`;
+                    scanPercent.innerText = `${pct}%`;
+
+                    // Processa a imagem do canvas do PDF com o Tesseract (Idioma: Português)
+                    const { data } = await Tesseract.recognize(canvas, 'por', {
+                        logger: m => {
+                            if(m.status === 'recognizing text') {
+                                let localPct = Math.round(m.progress * 100);
+                                scanStatus.innerText = `Lendo Pág. ${i+1}: ${localPct}%`;
+                            }
+                        }
+                    });
+
+                    // Procura em cada linha reconhecida pela IA para evitar quebra de blocos
+                    data.lines.forEach(line => {
+                        if (line.text.match(regexPuro)) {
+                            tarjasDetectadas++;
+                            // A genialidade aqui: O OCR usa as coordenadas em Pixels reais do Canvas! Não precisa de matemática.
+                            const bbox = line.bbox; // Retorna x0, y0, x1, y1
+                            const width = bbox.x1 - bbox.x0;
+                            const height = bbox.y1 - bbox.y0;
+
+                            // Injeta com uma sobra gordinha (padding) porque OCR pode não ser exato nas bordas
+                            injetarTarjaNaPagina(pageContainer, `${width + 10}px`, `${height + 10}px`, `${bbox.y0 - 5}px`, `${bbox.x0 - 5}px`);
+                        }
+                    });
+                }
+
+                scanStatus.innerText = `Finalizado!`;
+                setTimeout(() => {
+                    alert(`Varredura por OCR (Imagem) concluída. Encontramos ${tarjasDetectadas} dados em imagens.`);
+                    scanContainer.style.display = "none";
+                    btn.disabled = false; btn.style.opacity = "1";
+                    if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
+                }, 400);
+
+            } catch(e) {
+                console.error(e);
+                scanStatus.innerText = "Erro no motor OCR.";
+                btn.disabled = false; btn.style.opacity = "1";
+            }
+        };
+
+        // Salvamento Definitivo
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
