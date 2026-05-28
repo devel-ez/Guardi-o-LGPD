@@ -1,22 +1,24 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos com Redimensionamento Nativo (Resize) e Área do Resizer
+    // 1. Estilos - Botões de controle agora ficam DENTRO da tarja para não serem cortados pelo overflow
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 40px; min-height: 20px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 65px; min-height: 30px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.3); transition: 0.1s; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:12px; font-weight:bold; cursor:pointer; color:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.3); transition: 0.1s; z-index: 10000; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
     `;
     document.head.appendChild(style);
 
-    let pdfDocInstance = null;
-    let pdfBytesOriginal = null;
+    // Variáveis Globais corrigidas para evitar o Detached ArrayBuffer
+    let pdfDocInstance = null; // Instância do pdf-lib (Para salvar depois)
+    let pdfBytesOriginal = null; // Cópia original em ArrayBuffer
+    let globalPdfJsDoc = null; // CACHE DA LEITURA: Guarda o PDF.js processado para não precisar reler ao escanear
 
     // 2. Painel Lateral (UI)
     const root = document.createElement('div');
@@ -115,12 +117,12 @@
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
         
-        // PAUSA PARA O CHROME RENDERIZAR A BARRA ANTES DE TRAVAR O PROCESSADOR
         await new Promise(r => setTimeout(r, 50)); 
 
         const reader = new FileReader();
         reader.onload = async function(ev) {
-            pdfBytesOriginal = ev.target.result;
+            // Cria um Uint8Array para evitar problemas de transferência de memória
+            pdfBytesOriginal = new Uint8Array(ev.target.result);
             pdfDocInstance = await PDFLib.PDFDocument.load(pdfBytesOriginal);
             await renderizarDocumento(loadContainer);
         };
@@ -135,8 +137,10 @@
         const loadPercent = document.getElementById('lgpd-load-percent');
         const loadBar = document.getElementById('lgpd-load-bar');
 
-        const pdfJsDoc = await pdfjsLib.getDocument({ data: pdfBytesOriginal }).promise;
-        const totalPages = pdfJsDoc.numPages;
+        // Passa uma CÓPIA do buffer (.slice()) e SALVA o resultado globalmente
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytesOriginal.slice() });
+        globalPdfJsDoc = await loadingTask.promise; 
+        const totalPages = globalPdfJsDoc.numPages;
 
         for (let i = 1; i <= totalPages; i++) {
             loadStatus.innerText = `Renderizando pág. ${i} de ${totalPages}...`;
@@ -144,10 +148,9 @@
             loadBar.style.width = `${pct}%`;
             loadPercent.innerText = `${pct}%`;
 
-            // OBRIGA O NAVEGADOR A ATUALIZAR O VISUAL DA BARRA
             await new Promise(r => setTimeout(r, 20));
 
-            const page = await pdfJsDoc.getPage(i);
+            const page = await globalPdfJsDoc.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
 
             const pageContainer = document.createElement('div');
@@ -171,16 +174,16 @@
         inicializarEventos();
     }
 
-    // 5. Fábrica de Tarjas (Com Resizer nativo e Edição Pós-Confirmação)
+    // 5. Fábrica de Tarjas (Com botões internos para sobreviver ao overflow: hidden)
     function injetarTarjaNaPagina(pageContainer, w = '160px', h = '26px', top = '40px', left = '40px') {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         tarja.style.width = w; tarja.style.height = h;
         tarja.style.top = top; tarja.style.left = left;
 
-        // Container Flutuante dos botões (✕ e ✓)
+        // Container dos botões agora posicionado DENTRO da tarja (right: 2px, top: 2px)
         const controls = document.createElement('div');
-        controls.style = "position:absolute; right:0; top:-25px; display:flex; gap:5px;";
+        controls.style = "position:absolute; right:2px; top:2px; display:flex; gap:4px;";
 
         const btnRemover = document.createElement('div');
         btnRemover.className = 'btn-tarja-ctrl';
@@ -209,7 +212,7 @@
             tarja.title = "Clique para editar novamente";
         };
 
-        // Regra mágica: Clicar na tarja confirmada faz ela voltar ao modo de edição
+        // Permite reabrir a edição caso o usuário clique na tarja confirmada (preta)
         tarja.onclick = (e) => {
             if (tarja.classList.contains('confirmada')) {
                 tarja.classList.remove('confirmada');
@@ -218,19 +221,19 @@
             }
         };
 
-        // Lógica de Arrasto
+        // Lógica de Arrasto Protegida
         let isDragging = false;
         let startX, startY;
 
         tarja.addEventListener('mousedown', function(e) {
-            if (tarja.classList.contains('confirmada')) return; // Trava se confirmada
+            if (tarja.classList.contains('confirmada')) return; 
             
-            // Impede arrasto se clicou na borda inferior direita (onde fica o puxador de redimensionamento)
+            // Impede conflito de arrasto com o puxador nativo de resize do canto inferior direito
             const rect = tarja.getBoundingClientRect();
             if (e.clientX > rect.right - 20 && e.clientY > rect.bottom - 20) return;
             
-            // Impede arrasto se clicou nos botões
-            if (e.target !== tarja) return;
+            // Impede arrastar a tela caso clique exatamente em cima de um botão
+            if (e.target === btnRemover || e.target === btnConfirmar) return;
 
             isDragging = true;
             startX = e.clientX - tarja.offsetLeft;
@@ -241,7 +244,6 @@
             if (!isDragging) return;
             let x = e.clientX - startX; let y = e.clientY - startY;
             
-            // Limites da página
             if (x < 0) x = 0; if (y < 0) y = 0;
             if (x + tarja.offsetWidth > pageContainer.offsetWidth) x = pageContainer.offsetWidth - tarja.offsetWidth;
             if (y + tarja.offsetHeight > pageContainer.offsetHeight) y = pageContainer.offsetHeight - tarja.offsetHeight;
@@ -268,12 +270,13 @@
 
             btn.disabled = true; btn.style.opacity = "0.6";
             scanContainer.style.display = "block";
-            await new Promise(r => setTimeout(r, 50)); // Renderiza a barra
+            await new Promise(r => setTimeout(r, 50));
 
             try {
                 const regex = /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g;
-                const pdfJsDoc = await pdfjsLib.getDocument({ data: pdfBytesOriginal }).promise;
-                const totalPages = pdfJsDoc.numPages;
+                
+                // Correção vital: Usa o cache (globalPdfJsDoc) em vez de ler o documento novamente!
+                const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
                 for (let i = 1; i <= totalPages; i++) {
@@ -282,9 +285,10 @@
                     scanBar.style.width = `${pct}%`;
                     scanPercent.innerText = `${pct}%`;
                     
-                    await new Promise(r => setTimeout(r, 30)); // Respiro pro navegador
+                    await new Promise(r => setTimeout(r, 20));
 
-                    const page = await pdfJsDoc.getPage(i);
+                    // Usa o cache também aqui
+                    const page = await globalPdfJsDoc.getPage(i);
                     const textContent = await page.getTextContent();
                     const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
 
@@ -292,7 +296,7 @@
                         textContent.items.forEach(item => {
                             if (regex.test(item.str)) {
                                 tarjasDetectadas++;
-                                injetarTarjaNaPagina(pageContainer, '140px', '22px'); // Tarja sugerida
+                                injetarTarjaNaPagina(pageContainer, '140px', '22px');
                             }
                         });
                     }
@@ -327,12 +331,11 @@
                 const scaleX = pdfWidth / container.offsetWidth;
                 const scaleY = pdfHeight / container.offsetHeight;
 
-                // Transpõe redimensionamento atual (offsetWidth/offsetHeight) pro arquivo físico
                 const xPdf = parseFloat(tarja.style.left) * scaleX;
                 const yTela = parseFloat(tarja.style.top);
                 const hTarja = tarja.offsetHeight;
                 
-                const yPdf = (container.offsetHeight - yTela - hTarja) * scaleY; // Inverte Y
+                const yPdf = (container.offsetHeight - yTela - hTarja) * scaleY; 
                 
                 paginaAlvo.drawRectangle({
                     x: xPdf, y: yPdf,
