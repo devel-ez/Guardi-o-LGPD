@@ -1,6 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -18,11 +19,13 @@
     `;
     document.head.appendChild(style);
 
+    // 2. VARIÁVEIS GLOBAIS
     let pdfDocInstance = null; 
     let globalPdfJsDoc = null;
     let objectUrl = null; 
     let originalArrayBuffer = null;
 
+    // 3. Painel Lateral (UI)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:380px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -82,6 +85,7 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
+            if (tipo === 'trim') cor = '#38bdf8';
             
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
@@ -94,10 +98,11 @@
         if (logDiv.style.display === 'none') {
             logDiv.style.display = 'block';
             this.style.background = '#334155';
-            this.color = '#fff';
+            this.style.color = '#fff';
         } else {
             logDiv.style.display = 'none';
             this.style.background = '#1e293b';
+            this.style.color = '#94a3b8';
         }
     };
 
@@ -286,20 +291,68 @@
             this.style.display = 'none'; 
         };
 
-        // --- O MEGA DICIONÁRIO MILITAR E ADMINISTRATIVO (Anti Falso-Positivo) ---
-        // Agora com muito mais jargões, meses, e delimitado por bordas exatas de palavras
-        const termosIgnorados = /\b(COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O)\b/i;
+        // MEGA DICIONÁRIO DE EXCLUSÃO
+        const blacklist = new Set([
+            "COMANDO","MILITAR","EXERCITO","EXÉRCITO","MINISTERIO","MINISTÉRIO","SECRETARIA",
+            "DEPARTAMENTO","DIRETORIA","SELECAO","SELEÇÃO","COMANDANTES","CHEFES","DIRETORES",
+            "ORGANIZACOES","ORGANIZAÇÕES","ORGANIZAÇÓES","INFORMEX","DIFUSAO","DIFUSÃO",
+            "ASSUNTO","QUADROS","TURMAS","INFANTARIA","CAVALARIA","ARTILHARIA","ENGENHARIA",
+            "COMUNICACOES","COMUNICAÇÕES","INTENDENCIA","INTENDÊNCIA","MEDICO","MÉDICO",
+            "DENTISTA","FARMACEUTICO","FARMACÊUTICO","TOTAL","SEDE","CIDADE","POSTO","NOME",
+            "ATUAL","SAO","SÃO","PAULO","RIO","JANEIRO","BRASILIA","BRASÍLIA","FEVEREIRO",
+            "MARCO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO",
+            "NOVEMBRO","DEZEMBRO","OBS","ORD","RESENDE","CURITIBA","FORTALEZA","RECIFE",
+            "MANAUS","BELEM","BELÉM","PALAVRA","OFICIAL","INFORMAR","ESCLARECER","DEVER",
+            "AMAZONIA","AMAZÔNIA","ORIENTAL","NORDESTE","OESTE","SUL","SUDESTE","PLANALTO",
+            "LESTE","CENTRO","BATALHA","PATRONOS","QUALIDADES","INDISPENSAVEIS","INDISPENSÁVEIS",
+            "MENTE","EQUILIBRADA","INCERTEZAS","CONSERVE","CORAGEM","DETERMINACAO","DETERMINAÇÃO",
+            "EXPERIENCIA","EXPERIÊNCIA","CONHECIMENTO","ATRIBUTOS","ENTUSIASMO","LIDERANCA",
+            "LIDERANÇA","FLEXIBILIDADE","MATURIDADE","FERRAMENTAS","DECISOES","DECISÕES",
+            "DISCERNIMENTO","JUSTICA","JUSTIÇA","SUBORDINADOS","EXEMPLO","SUCESSO",
+            "RESPONSABILIDADE","MANUTENCAO","MANUTENÇÃO","FORTE","COESO","DEUS","ABENCOE",
+            "ABENÇOE","BRASILEIRO","QUE","VON","CLAUSEWITZ","TEMPO","PELA","MISSAO","MISSÃO",
+            "PARA","QUAL","FORAM","SELECIONADOS","AFIRMO","MINHA","CRENCA","CRENÇA","CUMPRIRAO",
+            "CUMPRIRÃO","TAREFA","IMBUIDOS","IMBUÍDOS","MAIS","CAROS","VALORES","NOSSA",
+            "INSTITUICAO","INSTITUIÇÃO","EXERCER","ASSUMINDO","RESPONSABILIDADES","INERENTES",
+            "MAIOR","DESAFIO","CARREIRA","LONGO","SUAS","ALICERCADOS","ALICERÇADOS",
+            "PROFISSIONAL","FORNECER","NECESSARIAS","NECESSÁRIAS","ARTE","COMANDAR","CONFIO",
+            "PLENAMENTE","TOMARAO","TOMARÃO","CONDUZINDO","SEUS","MEIO","DESEJO","TODOS",
+            "CONCITANDO","AINDA","CONTRIBUIR","NOSSO","DADOS","PESSOAIS","SENSIVEIS",
+            "SENSÍVEIS","LEI","GERAL","PROTECAO","PROTEÇÃO","ARTIGO","PARAGRAFO","PARÁGRAFO",
+            "INCISO","ALINEA","ALÍNEA","LEGISLACAO","LEGISLAÇÃO","MAJ","TEN","CEL","INF","INT",
+            "COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU",
+            "PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP",
+            "GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","RINCÃO","MUN",
+            "CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR",
+            "BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA",
+            "QSG","TENCEL","GAB","CMT","RM","CARL","INFORMAREESCLARECERÉDEVERDOCOMANDO","MNE",
+            "INFORMAREESCLARECER","ÉDEVERDOCOMANDO","DIREÇÃO","DIRECAO","CHEFIA"
+        ]);
 
-        // --- EXPRESSÕES DE CAPTURA ALVO (Enxutas e Precisas) ---
+        // Função de poda: Remove Jargões das extremidades de nomes
+        function limparBordasDoNome(matchStr) {
+            let words = matchStr.split(/\s+/);
+            
+            while (words.length > 0) {
+                let limpa = words[0].toUpperCase().replace(/[.,]/g, '');
+                if (blacklist.has(limpa) || limpa.length <= 2) words.shift();
+                else break;
+            }
+            while (words.length > 0) {
+                let limpa = words[words.length - 1].toUpperCase().replace(/[.,]/g, '');
+                if (blacklist.has(limpa) || limpa.length <= 2) words.pop();
+                else break;
+            }
+            return words.join(' ');
+        }
+
         const regexesBusca = [
-            /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g, // 1. CPF Completo
-            /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // 2. RG, CNH (11), Identidade Militar, CEPs Crus
-            /\b(\d{5}-\d{3})\b/g, // 3. CEP Formatado
-            /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g, // 4. Telefone
-            /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g, // 5. E-mail
-            /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi, // 6. Assinaturas Eletrônicas
-            /\b((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6})\b/gi, // 7. Endereços
-            /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,4})\b/g // 8. Nome Próprio (Garante 2 a 5 palavras estruturadas)
+            /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g, // CPF 
+            /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // Arrastão Numérico (RG, Identidade Militar, CEP)
+            /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g, // Telefone
+            /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g, // E-mail
+            /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi, // Assinaturas Eletrônicas Textuais
+            /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,5})\b/g // Nome Próprio Genérico
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -348,12 +401,8 @@
                                 if (linhaAtual.tokens.length > 0) {
                                     const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
                                     const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
-                                    
-                                    if (distX > 25) {
-                                        sep = ' | ';
-                                    } else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) {
-                                        sep = ' ';
-                                    }
+                                    if (distX > 25) sep = ' | ';
+                                    else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
                                 }
                                 linhaAtual.tokens.push(item);
                                 
@@ -372,12 +421,10 @@
                                     
                                     while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
                                     while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
-
                                     if (startIndex > endIndex) return;
 
                                     const first = linha.charMap[startIndex].item;
                                     const last = linha.charMap[endIndex].item;
-                                    
                                     const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                     const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                     const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
@@ -393,62 +440,72 @@
                                     let match;
                                     regex.lastIndex = 0;
                                     while ((match = regex.exec(linha.texto)) !== null) {
-                                        // O Grupo 1 sempre guarda o texto exato para evitar que a tarja cubra caracteres ao redor
-                                        let matchStr = match[1] || match[0];
+                                        let originalStr = match[1] || match[0];
+                                        let cleanStr = originalStr;
 
-                                        if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
-                                            logDebug(`[Ignorado] ${matchStr}`);
-                                            continue; 
+                                        // Se for texto alfabético, tenta "aparar" falsos positivos das pontas
+                                        if (/[a-z]/i.test(originalStr) && !originalStr.includes('@') && !originalStr.toLowerCase().includes('gov.br')) {
+                                            cleanStr = limparBordasDoNome(originalStr);
+                                            
+                                            // Se depois de podar sobrar menos de 2 palavras, não é um nome válido
+                                            if (cleanStr.split(/\s+/).length < 2) {
+                                                logDebug(`[Descartado] Falso Positivo: ${originalStr}`);
+                                                continue; 
+                                            }
+                                            
+                                            if (cleanStr !== originalStr) {
+                                                logDebug(`[Aparado] Original: ${originalStr} | Tarjado: ${cleanStr}`, 'trim');
+                                            }
                                         }
 
-                                        let matchIdx = match[1] ? match.index + match[0].indexOf(match[1]) : match.index;
+                                        let matchIdx = linha.texto.indexOf(cleanStr, match.index);
+                                        if (matchIdx === -1) matchIdx = match.index;
+
                                         let hasOverlap = false;
-                                        for (let k = 0; k < matchStr.length; k++) {
+                                        for (let k = 0; k < cleanStr.length; k++) {
                                             if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
                                         }
                                         if (!hasOverlap) {
-                                            logDebug(`>>> ENCONTRADO: [${matchStr}]`, 'match');
-                                            marcarTrecho(matchIdx, matchStr.length);
-                                            for (let k = 0; k < matchStr.length; k++) overlaps[matchIdx + k] = 1;
+                                            logDebug(`>>> TARJADO: [${cleanStr}]`, 'match');
+                                            marcarTrecho(matchIdx, cleanStr.length);
+                                            for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
                                     }
                                 });
                             });
                         } else {
-                            logDebug(`[OCR] Imagem detectada na pág ${i}. Lendo visualmente...`);
-                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA Visão)...`;
-                            
-                            if (typeof Tesseract === 'undefined') {
-                                await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                            }
+                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
+                            if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                             
                             const canvas = pageContainer.querySelector('canvas');
                             const { data } = await Tesseract.recognize(canvas, 'por', {
                                 logger: m => {
-                                    if(m.status === 'recognizing text') {
-                                        let localPct = Math.round(m.progress * 100);
-                                        scanStatus.innerText = `Pág. ${i} (IA Visual): ${localPct}%`;
-                                    }
+                                    if(m.status === 'recognizing text') scanStatus.innerText = `Pág. ${i} (IA Visual): ${Math.round(m.progress * 100)}%`;
                                 }
                             });
 
                             data.lines.forEach(line => {
-                                let matched = false;
-                                regexesBusca.forEach(regex => {
+                                let matchStr = null;
+
+                                for (let regex of regexesBusca) {
                                     regex.lastIndex = 0;
                                     let match;
                                     while ((match = regex.exec(line.text)) !== null) {
-                                        let matchStr = match[1] || match[0];
-                                        if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
-                                            continue;
+                                        let tempStr = match[1] || match[0];
+                                        
+                                        if (/[a-z]/i.test(tempStr) && !tempStr.includes('@') && !tempStr.toLowerCase().includes('gov.br')) {
+                                            tempStr = limparBordasDoNome(tempStr);
+                                            if (tempStr.split(/\s+/).length < 2) continue;
                                         }
-                                        logDebug(`>>> ENCONTRADO VIA OCR: [${matchStr}]`, 'match');
-                                        matched = true;
+                                        
+                                        matchStr = tempStr;
                                         break;
                                     }
-                                });
+                                    if (matchStr) break;
+                                }
                                 
-                                if (matched) {
+                                if (matchStr) {
+                                    logDebug(`>>> TARJADO VIA OCR: [${matchStr}]`, 'match');
                                     tarjasDetectadas++;
                                     const w = (line.bbox.x1 - line.bbox.x0) + 15;
                                     const h = (line.bbox.y1 - line.bbox.y0) + 10;
@@ -459,8 +516,8 @@
                     }
                 }
                 
-                logDebug(`\n[SUCESSO] ${tarjasDetectadas} tarjas sugeridas prontas para revisão.`);
-                alert(`Concluído! Encontramos ${tarjasDetectadas} dados.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
+                logDebug(`\n[SUCESSO] ${tarjasDetectadas} tarjas aplicadas.`);
+                alert(`Concluído! Encontramos ${tarjasDetectadas} potenciais dados sensíveis.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
                 scanContainer.style.display = "none";
                 btn.disabled = false;
                 if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
@@ -473,7 +530,7 @@
 
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
-            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
+            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada!"); return; }
             try {
                 const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
                 const paginasPdfLib = pdfDoc.getPages();
