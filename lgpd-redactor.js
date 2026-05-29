@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Painel Limpo, Sem Botão Manual)
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -84,7 +84,6 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
-            if (tipo === 'trim') cor = '#38bdf8';
             if (tipo === 'skip') cor = '#94a3b8';
             
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
@@ -210,7 +209,7 @@
         inicializarEventos();
     }
 
-    function injetarTarjaNaPagina(pageContainer, w = '160px', h = '40px', top = '40px', left = '40px') {
+    function injetarTarjaNaPagina(pageContainer, w, h, top, left) {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         tarja.style.width = w; tarja.style.height = h;
@@ -267,11 +266,9 @@
             this.style.display = 'none'; 
         };
 
-        // MEGA DICIONÁRIO DE EXCLUSÃO (Atualizado e Refinado)
-        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG|CAMARA|NACIONAL|MODELOS|LICITACOES|CONTRATOS|CONSULTORIA|SET|APROV|GERENCIADOR|PARTICIPANTE|FORMALIZACAO|CADASTRO|RESERVA|SISTEMA|ATUALIZACAO|NEGOCIACAO|REMANEJAMENTO|CANCELAMENTO|LICITANTE|VENCEDOR|PENALIDADES|GERAIS|MATRICULA|FUNCIONAL|ATA";
+        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG";
         const nuclearBlacklist = new RegExp(`\\b(${baseNuclear})\\b`, 'i');
 
-        // 2. APARADOR DE PATENTES (Cortador de pontas)
         const ranksToTrim = new Set([
             "MAJ","TEN","CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"
         ]);
@@ -291,14 +288,14 @@
             return words.join(' ');
         }
 
-        // 3. AS MÁSCARAS DE BUSCA EXATA (Somente ALL CAPS para nomes)
         const regexesBusca = [
             { tipo: 'cpf', r: /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g }, 
             { tipo: 'num', r: /(?:^|\b|\D)(\d{8,14})(?!\d)/g }, 
-            { tipo: 'ass', r: /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+            // REGRA ASSINATURA: Inclui gov.br, govb, assinatura eletrônica. E ignora letras soltas no início/fim.
+            { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|govb|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
             { tipo: 'end', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\b[^\n]{5,100}\b\d{1,6})\b/gi },
             { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
-            // REGRA INFALÍVEL PARA NOME: Somente se a palavra for 100% MAIÚSCULA
+            // REGRA DE NOME INFALÍVEL: Rejeita QUALQUER palavra que contenha letras minúsculas (a-z). Exige 100% CAIXA ALTA.
             { tipo: 'nome', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ])([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}){1,6})(?=[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]|$)/g } 
         ];
 
@@ -375,10 +372,14 @@
                                     const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                     const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
                                     
-                                    const h = Math.max((fs * viewport.scale) + 8, 12);
-                                    const w = Math.max(x1 - x0 + 10, 15);
+                                    let isAss = (tipo === 'ass');
+                                    // Fator Explosão: Se for gov.br/assinatura, a tarja é enorme
+                                    const h = isAss ? Math.max((fs * viewport.scale) * 3, 30) : Math.max((fs * viewport.scale) + 8, 12);
+                                    const w = isAss ? Math.max(x1 - x0 + 80, 100) : Math.max(x1 - x0 + 10, 15);
+                                    let finalY = isAss ? y0 - h + 15 : y0 - h + 2;
+                                    let finalX = isAss ? x0 - 40 : x0 - 5;
                                     
-                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 5}px`);
+                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${finalY}px`, `${finalX}px`);
                                     tarjasDetectadas++;
                                 };
 
@@ -394,10 +395,7 @@
                                                 logDebug(`[PJ] Ignorado: ${originalStr}`, 'skip');
                                                 continue; 
                                             }
-
-                                            if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) {
-                                                continue;
-                                            }
+                                            if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue;
 
                                             let unaccented = removeAcentos(originalStr).toUpperCase();
                                             if (nuclearBlacklist.test(unaccented)) {
@@ -488,9 +486,13 @@
                                             
                                             if(bbox.x0 === 9999) bbox = line.bbox;
                                             
-                                            const w = (bbox.x1 - bbox.x0) + 10;
-                                            const h = (bbox.y1 - bbox.y0) + 8;
-                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${bbox.y0 - 4}px`, `${bbox.x0 - 5}px`);
+                                            let isAss = (regObj.tipo === 'ass');
+                                            const w = isAss ? (bbox.x1 - bbox.x0) + 80 : (bbox.x1 - bbox.x0) + 10;
+                                            const h = isAss ? (bbox.y1 - bbox.y0) + 30 : (bbox.y1 - bbox.y0) + 8;
+                                            let finalY = isAss ? bbox.y0 - 15 : bbox.y0 - 4;
+                                            let finalX = isAss ? bbox.x0 - 40 : bbox.x0 - 5;
+                                            
+                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${finalY}px`, `${finalX}px`);
 
                                             for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
