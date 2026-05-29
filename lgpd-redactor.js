@@ -5,7 +5,7 @@
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 9999; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 2147483647; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
@@ -528,28 +528,65 @@
             }
         };
 
-        document.getElementById('btn-save-pdf').onclick = async function() {
+       document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
+            
+            const btn = this;
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = "⏳ GERANDO PDF SEGURO...";
+            btn.disabled = true;
+
             try {
+                // Carrega o PDF Original
                 const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
+                
+                // === A MÁGICA ACONTECE AQUI ===
+                // Pega todos os formulários e assinaturas flutuantes e "derrete" (achata) contra o papel base.
+                const form = pdfDoc.getForm();
+                try {
+                    form.flatten();
+                    logDebug("[Segurança] Assinaturas digitais e formulários foram achatados com sucesso.");
+                } catch(err) {
+                    logDebug("[Aviso] Não foi possível achatar formulários, ou o PDF não possui campos flutuantes.");
+                }
+
                 const paginasPdfLib = pdfDoc.getPages();
+                
                 tarjas.forEach(tarja => {
                     const container = tarja.parentElement;
                     const pageNum = parseInt(container.getAttribute('data-page-number'));
                     const paginaAlvo = paginasPdfLib[pageNum - 1];
                     const { width: pdfWidth } = paginaAlvo.getSize();
+                    
                     const scaleX = pdfWidth / container.offsetWidth;
                     const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
-                    paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
+                    
+                    // Desenha o retângulo preto definitivo
+                    paginaAlvo.drawRectangle({ 
+                        x: parseFloat(tarja.style.left) * scaleX, 
+                        y: yPdf, 
+                        width: tarja.offsetWidth * scaleX, 
+                        height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), 
+                        color: PDFLib.rgb(0, 0, 0) 
+                    });
                 });
+
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = "documento_tratado_lgpd.pdf";
                 link.click();
-            } catch(e) { alert("Erro ao salvar PDF."); }
+                
+                logDebug("[Sucesso] PDF salvo e baixado para o seu computador.");
+            } catch(e) { 
+                logDebug(`[Erro Fatal] Falha ao salvar PDF: ${e.message}`, 'error');
+                alert("Erro ao salvar PDF. Verifique o console de rastreio."); 
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
         };
     }
 
