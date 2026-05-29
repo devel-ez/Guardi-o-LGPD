@@ -14,6 +14,9 @@
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
+        /* Scroll customizado para o console */
+        #lgpd-debug-log::-webkit-scrollbar { width: 6px; }
+        #lgpd-debug-log::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     `;
     document.head.appendChild(style);
 
@@ -48,7 +51,7 @@
                 <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%;"></div></div>
             </div>
 
-            <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:12px;">
+            <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
                 <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear Documento Inteligente</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
@@ -61,9 +64,12 @@
 
                 <button id="btn-confirm-all" style="width:100%;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;display:none;">✅ Confirmar Todas as Sugestões</button>
                 <button id="btn-add-manual" style="width:100%;padding:10px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">➕ Criar Nova Tarja Manual</button>
-                <hr style="border:0;border-top:1px solid #e2e8f0;margin:4px 0;">
+                <hr style="border:0;border-top:1px solid #e2e8f0;margin:2px 0;">
                 <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">💾 SALVAR PDF HIGIENIZADO</button>
-                <button id="btn-new-doc" style="width:100%;padding:10px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;margin-top:4px;">📄 Carregar Novo Documento</button>
+                <button id="btn-new-doc" style="width:100%;padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">📄 Carregar Novo Documento</button>
+                
+                <button id="btn-toggle-log" style="width:100%;padding:8px;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">💻 Exibir Console de Rastreio</button>
+                <div id="lgpd-debug-log" style="display:none; height:180px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA DE RASTREIO ATIVADO...<br></div>
             </div>
         </div>
     `;
@@ -73,6 +79,32 @@
     workspace.id = 'lgpd-canvas-workspace';
     workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 410px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
     document.body.appendChild(workspace);
+
+    // Sistema de Log Customizado
+    function logDebug(msg, tipo = 'info') {
+        const logDiv = document.getElementById('lgpd-debug-log');
+        if (logDiv) {
+            let cor = '#10b981'; // Verde padrão
+            if (tipo === 'match') cor = '#f59e0b'; // Laranja para dado encontrado
+            if (tipo === 'error') cor = '#ef4444'; // Vermelho para erro
+            
+            logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        console.log(msg); // Mantém no F12 também
+    }
+
+    document.getElementById('btn-toggle-log').onclick = function() {
+        const logDiv = document.getElementById('lgpd-debug-log');
+        if (logDiv.style.display === 'none') {
+            logDiv.style.display = 'block';
+            this.style.background = '#334155';
+            this.color = '#fff';
+        } else {
+            logDiv.style.display = 'none';
+            this.style.background = '#1e293b';
+        }
+    };
 
     document.getElementById('close-lgpd-ui').onclick = () => {
         root.remove(); workspace.remove();
@@ -87,7 +119,7 @@
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         } catch (err) {
-            console.error("Erro nas dependências.");
+            logDebug("Erro fatal ao carregar bibliotecas. Verifique a internet.", 'error');
         }
     }
 
@@ -116,6 +148,7 @@
         document.getElementById('lgpd-actions-panel').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
         document.getElementById('btn-confirm-all').style.display = 'none';
+        document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA DE RASTREIO ATIVADO...<br>";
         pdfDocInstance = null;
         globalPdfJsDoc = null;
         originalArrayBuffer = null;
@@ -128,6 +161,7 @@
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
+        logDebug(`Carregando arquivo: ${file.name}`);
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
@@ -137,7 +171,7 @@
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
             await renderizarDocumento(loadContainer);
         } catch (err) {
-            console.error(err);
+            logDebug("Falha ao abrir PDF. Pode estar corrompido.", 'error');
         }
     }
 
@@ -151,8 +185,9 @@
 
         for (let i = 1; i <= totalPages; i++) {
             loadStatus.innerText = `Renderizando pág. ${i} de ${totalPages}...`;
-            loadBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
-            loadPercent.innerText = `${Math.round((i / totalPages) * 100)}%`;
+            let pct = Math.round((i / totalPages) * 100);
+            loadBar.style.width = `${pct}%`;
+            loadPercent.innerText = `${pct}%`;
             await new Promise(r => setTimeout(r, 20));
 
             const page = await globalPdfJsDoc.getPage(i);
@@ -252,22 +287,20 @@
         document.getElementById('btn-confirm-all').onclick = function() {
             const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
             pendentes.forEach(btn => btn.click());
-            alert(`${pendentes.length} tarjas fixadas!`);
+            logDebug(`[Ação] ${pendentes.length} tarjas confirmadas pelo usuário.`);
             this.style.display = 'none'; 
         };
 
-        // EXCLUSÕES MAIS INTELIGENTES
-        const termosIgnorados = /COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|NOME|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|OBS|ORD|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M/i;
+        // --- O SEGREDO: Uso da Tag \b para impedir que ORD bloqueie LEONARDO ---
+        const termosIgnorados = /\b(COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|NOME|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|OBS|ORD|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M)\b/i;
 
-        // MASCRAS SIMPLIFICADAS PARA EVITAR QUEBRAS
         const regexesBusca = [
-            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Tolerante
-            /(?:^|\D)((?:\d\s*){8,11})(?!\d)/g, // Identidades ou qualquer número de 8 a 11 dígitos
-            /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
-            /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
-            /gov\.br(?:\/assinatura)?/gi, // Assinatura Digital
-            // NOVO REGEX DE NOME: Mais de 2 palavras maiúsculas seguidas
-            /[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})+/g
+            /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g, // CPF 
+            /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // Arrastão Numérico: RG, Identidades Militares, RGs e CPFs crus
+            /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/g, // Telefone
+            /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, // Email
+            /gov\.br(?:\/assinatura)?|assinado\s+digitalmente/gi, // Assinatura Eletrônica
+            /\b[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}){1,5}\b/g // Nomes Próprios
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -277,11 +310,14 @@
             const scanBar = document.getElementById('lgpd-scan-bar');
             btn.disabled = true; scanContainer.style.display = "block";
 
+            // Abre o console automaticamente se estiver fechado
+            document.getElementById('lgpd-debug-log').style.display = 'block';
+
             try {
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
-                console.log("=== INICIANDO VARREDURA (DEBUG) ===");
+                logDebug("\n[INÍCIO] Escaneamento Inteligente acionado.");
 
                 for (let i = 1; i <= totalPages; i++) {
                     scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
@@ -296,24 +332,33 @@
                         const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                         
                         if (validItems.length > 10) {
+                            logDebug(`[Nativo] Extraindo texto da página ${i}...`);
+                            
                             const linhas = [];
                             let linhaAtual = null;
 
                             validItems.sort((a, b) => {
                                 const dy = b.transform[5] - a.transform[5];
-                                if (Math.abs(dy) > 4) return dy;
+                                if (Math.abs(dy) > 5) return dy;
                                 return a.transform[4] - b.transform[4];
                             }).forEach(item => {
                                 const itemY = item.transform[5];
-                                if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 4) {
+                                if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
                                     linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
                                     linhas.push(linhaAtual);
                                 }
+                                
                                 let sep = '';
                                 if (linhaAtual.tokens.length > 0) {
-                                    const lastItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
-                                    const distX = item.transform[4] - (lastItem.transform[4] + lastItem.width);
-                                    sep = distX > 10 ? ' | ' : ' ';
+                                    const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
+                                    const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
+                                    
+                                    // Tolerância de reconstrução de palavras
+                                    if (distX > 25) {
+                                        sep = ' | ';
+                                    } else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) {
+                                        sep = ' ';
+                                    }
                                 }
                                 linhaAtual.tokens.push(item);
                                 
@@ -324,9 +369,6 @@
                             });
 
                             linhas.forEach(linha => {
-                                // LOG DE RASTREIO - Exibe a linha que o PDF conseguiu ler
-                                console.log(`Página ${i} | Linha Lida:`, linha.texto);
-
                                 const overlaps = new Uint8Array(linha.texto.length);
 
                                 const marcarTrecho = (matchIdx, matchLen) => {
@@ -359,6 +401,7 @@
                                         let matchStr = match[1] || match[0];
 
                                         if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
+                                            logDebug(`[Filtro] Ignorado por ser Jargão: ${matchStr}`);
                                             continue; 
                                         }
 
@@ -368,9 +411,7 @@
                                             if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
                                         }
                                         if (!hasOverlap) {
-                                            // LOG DE DETECÇÃO - Mostra exatamente a palavra que o robô escolheu tarjar
-                                            console.log(`>>> DADO ENCONTRADO: [${matchStr}]`);
-
+                                            logDebug(`>>> DADO ENCONTRADO: [${matchStr}]`, 'match');
                                             marcarTrecho(matchIdx, matchStr.length);
                                             for (let k = 0; k < matchStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
@@ -378,25 +419,32 @@
                                 });
                             });
                         } else {
-                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
-                            if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                            const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
+                            logDebug(`[OCR] Imagem detectada na pág ${i}. Acionando IA Visual...`);
+                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA Visão)...`;
                             
-                            const ocrRegexes = [
-                                /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi,
-                                /\d{8,11}/g,
-                                /gov\.br|assinado/gi,
-                                /[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})+/g
-                            ];
+                            if (typeof Tesseract === 'undefined') {
+                                logDebug("Baixando pacotes de Inteligência Artificial...");
+                                await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+                            }
+                            
+                            const canvas = pageContainer.querySelector('canvas');
+                            const { data } = await Tesseract.recognize(canvas, 'por', {
+                                logger: m => {
+                                    if(m.status === 'recognizing text') {
+                                        let localPct = Math.round(m.progress * 100);
+                                        scanStatus.innerText = `Pág. ${i} (IA Visual): ${localPct}%`;
+                                    }
+                                }
+                            });
 
                             data.lines.forEach(line => {
                                 let matched = false;
-                                ocrRegexes.forEach(regex => {
+                                regexesBusca.forEach(regex => {
                                     regex.lastIndex = 0;
                                     let match;
                                     while ((match = regex.exec(line.text)) !== null) {
                                         if (/[a-z]/i.test(match[0]) && termosIgnorados.test(match[0])) continue;
-                                        console.log(`>>> DADO ENCONTRADO (VIA OCR): [${match[0]}]`);
+                                        logDebug(`>>> DADO OCR ENCONTRADO: [${match[0]}]`, 'match');
                                         matched = true;
                                         break;
                                     }
@@ -412,18 +460,22 @@
                         }
                     }
                 }
+                
+                logDebug(`\n[SUCESSO] Fim. ${tarjasDetectadas} tarjas aplicadas.`);
                 alert(`Concluído! Encontramos ${tarjasDetectadas} potenciais dados sensíveis.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
                 scanContainer.style.display = "none";
                 btn.disabled = false;
                 if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
             } catch (e) { 
-                console.error(e); 
+                logDebug(`Erro Crítico: ${e.message}`, 'error');
+                scanStatus.innerText = "Erro no escaneamento.";
+                btn.disabled = false; 
             }
         };
 
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
-            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada!"); return; }
+            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
             try {
                 const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
                 const paginasPdfLib = pdfDoc.getPages();
