@@ -295,78 +295,41 @@
             this.style.display = 'none'; 
         };
 
-        // MEGA DICIONÁRIO DE EXCLUSÃO (Atualizado com Cidades, Guarnições e Lixos de OCR do seu Log)
-        const baseBlacklist = [
-            // Jargões, Termos Gov e Alucinações de OCR
-            "COMANDO","MILITAR","EXERCITO","MINISTERIO","SECRETARIA","DEPARTAMENTO","DIRETORIA",
-            "SELECAO","COMANDANTES","CHEFES","DIRETORES","ORGANIZACOES","INFORMEX","DIFUSAO",
-            "ASSUNTO","QUADROS","TURMAS","INFANTARIA","CAVALARIA","ARTILHARIA","ENGENHARIA",
-            "COMUNICACOES","INTENDENCIA","MEDICO","DENTISTA","FARMACEUTICO","TOTAL","SEDE",
-            "CIDADE","POSTO","NOME","ATUAL","OBS","ORD","PALAVRA","OFICIAL","INFORMAR","ESCLARECER",
-            "DEVER","AMAZONIA","ORIENTAL","NORDESTE","OESTE","SUL","SUDESTE","PLANALTO","LESTE",
-            "CENTRO","BATALHA","PATRONOS","QUALIDADES","INDISPENSAVEIS","MENTE","EQUILIBRADA",
-            "INCERTEZAS","CONSERVE","CORAGEM","DETERMINACAO","EXPERIENCIA","CONHECIMENTO",
-            "ATRIBUTOS","ENTUSIASMO","LIDERANCA","FLEXIBILIDADE","MATURIDADE","FERRAMENTAS",
-            "DECISOES","DISCERNIMENTO","JUSTICA","SUBORDINADOS","EXEMPLO","SUCESSO",
-            "RESPONSABILIDADE","MANUTENCAO","FORTE","COESO","DEUS","ABENCOE","BRASILEIRO",
-            "QUE","VON","CLAUSEWITZ","TEMPO","PELA","MISSAO","PARA","QUAL","FORAM","SELECIONADOS",
-            "AFIRMO","MINHA","CRENCA","CUMPRIRAO","TAREFA","IMBUIDOS","MAIS","CAROS","VALORES",
-            "NOSSA","INSTITUICAO","EXERCER","ASSUMINDO","RESPONSABILIDADES","INERENTES","MAIOR",
-            "DESAFIO","CARREIRA","LONGO","SUAS","ALICERCADOS","PROFISSIONAL","FORNECER","NECESSARIAS",
-            "ARTE","COMANDAR","CONFIO","PLENAMENTE","TOMARAO","CONDUZINDO","SEUS","MEIO","DESEJO",
-            "TODOS","CONCITANDO","AINDA","CONTRIBUIR","NOSSO","DADOS","PESSOAIS","SENSIVEIS","LEI",
-            "GERAL","PROTECAO","ARTIGO","PARAGRAFO","INCISO","ALINEA","LEGISLACAO","MAJ","TEN",
-            "CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP",
-            "LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP",
-            "AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE",
-            "CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM",
-            "CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB",
-            "CMT","RM","CARL","INFORMAREESCLARECER","MNE","DIRECAO","CHEFIA", "DISTRIBUICAO", "POR", 
-            "DOS", "VETFORINEAS", "TEAA", "OMATUAL", "OMSEDE", "AQSVT", "BIPGD", "RIODE", "BEXAP",
-            "TOG", "ZGL", "BDA", "TINF", "WGAL", "QGEX", "IUGIPOSRO", "DIY", "VATUS", "COMUNICACAO",
-            "SOEIAL", "ANOS", "VITORIA", 
+        // 1. BLACKLIST NUCLEAR (Se essa palavra estiver no meio da frase, destrói a tarja inteira)
+        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA";
+        const nuclearBlacklist = new RegExp(`\\b(${baseNuclear})\\b`, 'i');
 
-            // Cidades e Bases (Para ignorar OM + Cidade)
-            "SAO","PAULO","RIO","JANEIRO","BRASILIA","FEVEREIRO","MARCO","ABRIL","MAIO","JUNHO",
-            "JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO","RESENDE","CURITIBA",
-            "FORTALEZA","RECIFE","MANAUS","BELEM","BELEMN","MACAP","MACAPA","MARAB","MARABA",
-            "PRAIAGRANDE","SETELAGOAS","SAOGABRIEL","BOAVISTA","PORTOVELHO","MONTES","CLAROS",
-            "JUIZDEFORA","CAMPINAGRANDE","CRATEUS","MACEIO","PAULO","AFONSO","NATAL","CAICO",
-            "PICOS","BARREIRAS","SALVADOR","JOAO","PESSOA","CUIABA","COXIM","ARAGARCAS",
-            "PORTOMURTINHO","BELAVISTA","AMAMBAI","CAMPOGRANDE","AQUIDAUANA","PALMAS","UBERLANDIA",
-            "JATAI","FORMOSA","ARAGUARI","GOIANIA","CAMPINAS","LINS","BARUERI","JUNDIAI",
-            "PINDAMONHANGABA","TAUBATE","SOROCABA","PELOTAS","SAOLEOPOLDO","APUCARANA","CASCAVEL",
-            "FOZDOIGUACU","PORTOALEGRE","GUAIRA","ITAQUI","SAOBORJA","SAOLUIZGONZAGA","ROSARIODOSUL",
-            "RIONEGRO","ALEGRETE","URUGUAIANA","JAGUARAO","SAOMIGUELDOOESTE","SANTAROSA",
-            "CACHOEIRADOSUL","GUARAPUAVA","CRUZALTA","NOVASANTARITA","BAGE","SANTIAGO",
-            "TRESBARRAS","PARACAMBI"
-        ];
-        
-        const blacklist = new Set(baseBlacklist.map(removeAcentos));
+        // 2. APARADOR DE PATENTES (Tesoura que corta as pontas, mas mantém o nome do meio)
+        const ranksToTrim = new Set([
+            "MAJ","TEN","CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS"
+        ]);
 
         function limparBordasDoNome(matchStr) {
             let words = matchStr.split(/\s+/);
             
             while (words.length > 0) {
                 let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]]/g, ''));
-                if (blacklist.has(limpa) || limpa.length <= 2) words.shift();
+                if (ranksToTrim.has(limpa) || limpa.length <= 2) words.shift();
                 else break;
             }
             while (words.length > 0) {
                 let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]]/g, ''));
-                if (blacklist.has(limpa) || limpa.length <= 2) words.pop();
+                if (ranksToTrim.has(limpa) || limpa.length <= 2) words.pop();
                 else break;
             }
             return words.join(' ');
         }
 
+        // 3. ARQUITETURA CLASSIFICADA
         const regexesBusca = [
-            /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g, // CPF 
-            /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // Arrastão Numérico (RG, Identidade Militar, CEP)
-            /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g, // Telefone
-            /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g, // E-mail
-            /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi, // Assinaturas Eletrônicas
-            /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,5})\b/g // Nome Próprio Genérico
+            { tipo: 'cpf', r: /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g }, 
+            { tipo: 'num', r: /(?:^|\b|\D)(\d{8,11})(?!\d)/g }, 
+            { tipo: 'tel', r: /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g },
+            { tipo: 'email', r: /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g }, 
+            { tipo: 'ass', r: /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+            { tipo: 'end', r: /\b((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6})\b/gi },
+            // Nova Regra de Nome: Ignora tudo o que tem letras minúsculas (Mata Cidades e siglas OMs)
+            { tipo: 'nome', r: /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}){1,5})\b/g } 
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -396,7 +359,6 @@
                         const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                         
                         if (validItems.length > 10) {
-                            // --- MODO TEXTO NATIVO ---
                             const linhas = [];
                             let linhaAtual = null;
 
@@ -450,16 +412,21 @@
                                     tarjasDetectadas++;
                                 };
 
-                                regexesBusca.forEach(regex => {
+                                regexesBusca.forEach(regObj => {
                                     let match;
-                                    regex.lastIndex = 0;
-                                    while ((match = regex.exec(linha.texto)) !== null) {
+                                    regObj.r.lastIndex = 0;
+                                    while ((match = regObj.r.exec(linha.texto)) !== null) {
                                         let originalStr = match[1] || match[0];
                                         let cleanStr = originalStr;
 
-                                        if (/[a-z]/i.test(originalStr) && !originalStr.includes('@') && !originalStr.toLowerCase().includes('gov.br')) {
+                                        if (regObj.tipo === 'nome') {
+                                            if (nuclearBlacklist.test(originalStr)) {
+                                                logDebug(`[Nuclear] Ignorado (Jargão Estrutural): ${originalStr}`);
+                                                continue; 
+                                            }
                                             cleanStr = limparBordasDoNome(originalStr);
-                                            if (cleanStr.split(/\s+/).length < 2) continue; 
+                                            // Se cortou tudo e sobrou 1 palavra, pode ser o OCR grudando. Se for > 10 chars, deixa passar.
+                                            if (cleanStr.split(/\s+/).length < 2 && cleanStr.length < 10) continue; 
                                         }
 
                                         let matchIdx = linha.texto.indexOf(cleanStr, match.index);
@@ -478,7 +445,6 @@
                                 });
                             });
                         } else {
-                            // --- MODO OCR ---
                             scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
                             if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                             
@@ -492,16 +458,17 @@
                             data.lines.forEach(line => {
                                 let overlaps = new Uint8Array(line.text.length);
 
-                                regexesBusca.forEach(regex => {
-                                    regex.lastIndex = 0;
+                                regexesBusca.forEach(regObj => {
+                                    regObj.r.lastIndex = 0;
                                     let match;
-                                    while ((match = regex.exec(line.text)) !== null) {
+                                    while ((match = regObj.r.exec(line.text)) !== null) {
                                         let originalStr = match[1] || match[0];
                                         let cleanStr = originalStr;
                                         
-                                        if (/[a-z]/i.test(originalStr) && !originalStr.includes('@') && !originalStr.toLowerCase().includes('gov.br')) {
+                                        if (regObj.tipo === 'nome') {
+                                            if (nuclearBlacklist.test(originalStr)) continue;
                                             cleanStr = limparBordasDoNome(originalStr);
-                                            if (cleanStr.split(/\s+/).length < 2) continue;
+                                            if (cleanStr.split(/\s+/).length < 2 && cleanStr.length < 10) continue;
                                         }
                                         
                                         let matchIdx = line.text.indexOf(cleanStr, match.index);
