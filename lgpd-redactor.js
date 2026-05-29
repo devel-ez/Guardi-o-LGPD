@@ -296,7 +296,7 @@
             this.style.display = 'none'; 
         };
 
-        // BLACKLIST COM REMOÇÃO AUTOMÁTICA DE ACENTOS (Seguro)
+        // BLACKLIST ATUALIZADA COM OS TERMOS REVELADOS NO LOG
         const baseBlacklist = [
             "COMANDO","MILITAR","EXERCITO","MINISTERIO","SECRETARIA","DEPARTAMENTO","DIRETORIA",
             "SELECAO","COMANDANTES","CHEFES","DIRETORES","ORGANIZACOES","INFORMEX","DIFUSAO",
@@ -326,10 +326,9 @@
             "CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR",
             "BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON",
             "QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","INFORMAREESCLARECER","MNE",
-            "DIRECAO","CHEFIA"
+            "DIRECAO","CHEFIA", "DISTRIBUICAO", "POR", "DOS", "VETFORINEAS", "TEAA", "OMATUAL", "OMSEDE", "AQSVT"
         ];
         
-        // Assegura que nenhum acento escapou
         const blacklist = new Set(baseBlacklist.map(removeAcentos));
 
         function limparBordasDoNome(matchStr) {
@@ -466,7 +465,7 @@
                                 });
                             });
                         } else {
-                            // --- MODO OCR (A MATEMÁTICA EXATA DA CAIXA) ---
+                            // --- MODO OCR ---
                             scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
                             if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                             
@@ -504,7 +503,6 @@
                                             logDebug(`>>> TARJADO VIA OCR: [${cleanStr}]`, 'match');
                                             tarjasDetectadas++;
                                             
-                                            // Constrói a bounding box apenas das palavras que formam o match (não da linha inteira!)
                                             let matchEnd = matchIdx + cleanStr.length;
                                             let charCursor = 0;
                                             let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
@@ -523,7 +521,7 @@
                                                 }
                                             });
                                             
-                                            if(bbox.x0 === 9999) bbox = line.bbox; // fallback extremo
+                                            if(bbox.x0 === 9999) bbox = line.bbox;
                                             
                                             const w = (bbox.x1 - bbox.x0) + 10;
                                             const h = (bbox.y1 - bbox.y0) + 8;
