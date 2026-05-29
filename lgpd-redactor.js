@@ -271,6 +271,11 @@
         return visiblePage;
     }
 
+    // Função de Remoção de Acentos (Universal)
+    function removeAcentos(str) {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+
     function inicializarEventos() {
         document.getElementById('btn-add-manual').onclick = function() {
             const paginaAtual = getPaginaMaisVisivel();
@@ -291,55 +296,52 @@
             this.style.display = 'none'; 
         };
 
-        // MEGA DICIONÁRIO DE EXCLUSÃO
-        const blacklist = new Set([
-            "COMANDO","MILITAR","EXERCITO","EXÉRCITO","MINISTERIO","MINISTÉRIO","SECRETARIA",
-            "DEPARTAMENTO","DIRETORIA","SELECAO","SELEÇÃO","COMANDANTES","CHEFES","DIRETORES",
-            "ORGANIZACOES","ORGANIZAÇÕES","ORGANIZAÇÓES","INFORMEX","DIFUSAO","DIFUSÃO",
+        // BLACKLIST COM REMOÇÃO AUTOMÁTICA DE ACENTOS (Seguro)
+        const baseBlacklist = [
+            "COMANDO","MILITAR","EXERCITO","MINISTERIO","SECRETARIA","DEPARTAMENTO","DIRETORIA",
+            "SELECAO","COMANDANTES","CHEFES","DIRETORES","ORGANIZACOES","INFORMEX","DIFUSAO",
             "ASSUNTO","QUADROS","TURMAS","INFANTARIA","CAVALARIA","ARTILHARIA","ENGENHARIA",
-            "COMUNICACOES","COMUNICAÇÕES","INTENDENCIA","INTENDÊNCIA","MEDICO","MÉDICO",
-            "DENTISTA","FARMACEUTICO","FARMACÊUTICO","TOTAL","SEDE","CIDADE","POSTO","NOME",
-            "ATUAL","SAO","SÃO","PAULO","RIO","JANEIRO","BRASILIA","BRASÍLIA","FEVEREIRO",
-            "MARCO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO",
+            "COMUNICACOES","INTENDENCIA","MEDICO","DENTISTA","FARMACEUTICO","TOTAL","SEDE",
+            "CIDADE","POSTO","NOME","ATUAL","SAO","PAULO","RIO","JANEIRO","BRASILIA",
+            "FEVEREIRO","MARCO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO",
             "NOVEMBRO","DEZEMBRO","OBS","ORD","RESENDE","CURITIBA","FORTALEZA","RECIFE",
-            "MANAUS","BELEM","BELÉM","PALAVRA","OFICIAL","INFORMAR","ESCLARECER","DEVER",
-            "AMAZONIA","AMAZÔNIA","ORIENTAL","NORDESTE","OESTE","SUL","SUDESTE","PLANALTO",
-            "LESTE","CENTRO","BATALHA","PATRONOS","QUALIDADES","INDISPENSAVEIS","INDISPENSÁVEIS",
-            "MENTE","EQUILIBRADA","INCERTEZAS","CONSERVE","CORAGEM","DETERMINACAO","DETERMINAÇÃO",
-            "EXPERIENCIA","EXPERIÊNCIA","CONHECIMENTO","ATRIBUTOS","ENTUSIASMO","LIDERANCA",
-            "LIDERANÇA","FLEXIBILIDADE","MATURIDADE","FERRAMENTAS","DECISOES","DECISÕES",
-            "DISCERNIMENTO","JUSTICA","JUSTIÇA","SUBORDINADOS","EXEMPLO","SUCESSO",
-            "RESPONSABILIDADE","MANUTENCAO","MANUTENÇÃO","FORTE","COESO","DEUS","ABENCOE",
-            "ABENÇOE","BRASILEIRO","QUE","VON","CLAUSEWITZ","TEMPO","PELA","MISSAO","MISSÃO",
-            "PARA","QUAL","FORAM","SELECIONADOS","AFIRMO","MINHA","CRENCA","CRENÇA","CUMPRIRAO",
-            "CUMPRIRÃO","TAREFA","IMBUIDOS","IMBUÍDOS","MAIS","CAROS","VALORES","NOSSA",
-            "INSTITUICAO","INSTITUIÇÃO","EXERCER","ASSUMINDO","RESPONSABILIDADES","INERENTES",
-            "MAIOR","DESAFIO","CARREIRA","LONGO","SUAS","ALICERCADOS","ALICERÇADOS",
-            "PROFISSIONAL","FORNECER","NECESSARIAS","NECESSÁRIAS","ARTE","COMANDAR","CONFIO",
-            "PLENAMENTE","TOMARAO","TOMARÃO","CONDUZINDO","SEUS","MEIO","DESEJO","TODOS",
-            "CONCITANDO","AINDA","CONTRIBUIR","NOSSO","DADOS","PESSOAIS","SENSIVEIS",
-            "SENSÍVEIS","LEI","GERAL","PROTECAO","PROTEÇÃO","ARTIGO","PARAGRAFO","PARÁGRAFO",
-            "INCISO","ALINEA","ALÍNEA","LEGISLACAO","LEGISLAÇÃO","MAJ","TEN","CEL","INF","INT",
-            "COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU",
+            "MANAUS","BELEM","PALAVRA","OFICIAL","INFORMAR","ESCLARECER","DEVER","AMAZONIA",
+            "ORIENTAL","NORDESTE","OESTE","SUL","SUDESTE","PLANALTO","LESTE","CENTRO",
+            "BATALHA","PATRONOS","QUALIDADES","INDISPENSAVEIS","MENTE","EQUILIBRADA",
+            "INCERTEZAS","CONSERVE","CORAGEM","DETERMINACAO","EXPERIENCIA","CONHECIMENTO",
+            "ATRIBUTOS","ENTUSIASMO","LIDERANCA","FLEXIBILIDADE","MATURIDADE","FERRAMENTAS",
+            "DECISOES","DISCERNIMENTO","JUSTICA","SUBORDINADOS","EXEMPLO","SUCESSO",
+            "RESPONSABILIDADE","MANUTENCAO","FORTE","COESO","DEUS","ABENCOE","BRASILEIRO",
+            "QUE","VON","CLAUSEWITZ","TEMPO","PELA","MISSAO","PARA","QUAL","FORAM",
+            "SELECIONADOS","AFIRMO","MINHA","CRENCA","CUMPRIRAO","TAREFA","IMBUIDOS","MAIS",
+            "CAROS","VALORES","NOSSA","INSTITUICAO","EXERCER","ASSUMINDO","RESPONSABILIDADES",
+            "INERENTES","MAIOR","DESAFIO","CARREIRA","LONGO","SUAS","ALICERCADOS","PROFISSIONAL",
+            "FORNECER","NECESSARIAS","ARTE","COMANDAR","CONFIO","PLENAMENTE","TOMARAO",
+            "CONDUZINDO","SEUS","MEIO","DESEJO","TODOS","CONCITANDO","AINDA","CONTRIBUIR",
+            "NOSSO","DADOS","PESSOAIS","SENSIVEIS","LEI","GERAL","PROTECAO","ARTIGO",
+            "PARAGRAFO","INCISO","ALINEA","LEGISLACAO","MAJ","TEN","CEL","INF","INT","COM",
+            "ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU",
             "PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP",
-            "GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","RINCÃO","MUN",
-            "CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR",
-            "BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA",
-            "QSG","TENCEL","GAB","CMT","RM","CARL","INFORMAREESCLARECERÉDEVERDOCOMANDO","MNE",
-            "INFORMAREESCLARECER","ÉDEVERDOCOMANDO","DIREÇÃO","DIRECAO","CHEFIA"
-        ]);
+            "GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA",
+            "CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR",
+            "BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON",
+            "QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","INFORMAREESCLARECER","MNE",
+            "DIRECAO","CHEFIA"
+        ];
+        
+        // Assegura que nenhum acento escapou
+        const blacklist = new Set(baseBlacklist.map(removeAcentos));
 
-        // Função de poda: Remove Jargões das extremidades de nomes
         function limparBordasDoNome(matchStr) {
             let words = matchStr.split(/\s+/);
             
             while (words.length > 0) {
-                let limpa = words[0].toUpperCase().replace(/[.,]/g, '');
+                let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]]/g, ''));
                 if (blacklist.has(limpa) || limpa.length <= 2) words.shift();
                 else break;
             }
             while (words.length > 0) {
-                let limpa = words[words.length - 1].toUpperCase().replace(/[.,]/g, '');
+                let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]]/g, ''));
                 if (blacklist.has(limpa) || limpa.length <= 2) words.pop();
                 else break;
             }
@@ -351,7 +353,7 @@
             /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // Arrastão Numérico (RG, Identidade Militar, CEP)
             /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g, // Telefone
             /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g, // E-mail
-            /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi, // Assinaturas Eletrônicas Textuais
+            /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi, // Assinaturas Eletrônicas
             /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,5})\b/g // Nome Próprio Genérico
         ];
 
@@ -361,7 +363,6 @@
             const scanStatus = document.getElementById('lgpd-scan-status');
             const scanBar = document.getElementById('lgpd-scan-bar');
             btn.disabled = true; scanContainer.style.display = "block";
-
             document.getElementById('lgpd-debug-log').style.display = 'block';
 
             try {
@@ -383,6 +384,7 @@
                         const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                         
                         if (validItems.length > 10) {
+                            // --- MODO TEXTO NATIVO ---
                             const linhas = [];
                             let linhaAtual = null;
 
@@ -443,19 +445,9 @@
                                         let originalStr = match[1] || match[0];
                                         let cleanStr = originalStr;
 
-                                        // Se for texto alfabético, tenta "aparar" falsos positivos das pontas
                                         if (/[a-z]/i.test(originalStr) && !originalStr.includes('@') && !originalStr.toLowerCase().includes('gov.br')) {
                                             cleanStr = limparBordasDoNome(originalStr);
-                                            
-                                            // Se depois de podar sobrar menos de 2 palavras, não é um nome válido
-                                            if (cleanStr.split(/\s+/).length < 2) {
-                                                logDebug(`[Descartado] Falso Positivo: ${originalStr}`);
-                                                continue; 
-                                            }
-                                            
-                                            if (cleanStr !== originalStr) {
-                                                logDebug(`[Aparado] Original: ${originalStr} | Tarjado: ${cleanStr}`, 'trim');
-                                            }
+                                            if (cleanStr.split(/\s+/).length < 2) continue; 
                                         }
 
                                         let matchIdx = linha.texto.indexOf(cleanStr, match.index);
@@ -474,6 +466,7 @@
                                 });
                             });
                         } else {
+                            // --- MODO OCR (A MATEMÁTICA EXATA DA CAIXA) ---
                             scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
                             if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                             
@@ -485,38 +478,67 @@
                             });
 
                             data.lines.forEach(line => {
-                                let matchStr = null;
+                                let overlaps = new Uint8Array(line.text.length);
 
-                                for (let regex of regexesBusca) {
+                                regexesBusca.forEach(regex => {
                                     regex.lastIndex = 0;
                                     let match;
                                     while ((match = regex.exec(line.text)) !== null) {
-                                        let tempStr = match[1] || match[0];
+                                        let originalStr = match[1] || match[0];
+                                        let cleanStr = originalStr;
                                         
-                                        if (/[a-z]/i.test(tempStr) && !tempStr.includes('@') && !tempStr.toLowerCase().includes('gov.br')) {
-                                            tempStr = limparBordasDoNome(tempStr);
-                                            if (tempStr.split(/\s+/).length < 2) continue;
+                                        if (/[a-z]/i.test(originalStr) && !originalStr.includes('@') && !originalStr.toLowerCase().includes('gov.br')) {
+                                            cleanStr = limparBordasDoNome(originalStr);
+                                            if (cleanStr.split(/\s+/).length < 2) continue;
                                         }
                                         
-                                        matchStr = tempStr;
-                                        break;
+                                        let matchIdx = line.text.indexOf(cleanStr, match.index);
+                                        if (matchIdx === -1) matchIdx = match.index;
+
+                                        let hasOverlap = false;
+                                        for (let k = 0; k < cleanStr.length; k++) {
+                                            if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
+                                        }
+
+                                        if (!hasOverlap) {
+                                            logDebug(`>>> TARJADO VIA OCR: [${cleanStr}]`, 'match');
+                                            tarjasDetectadas++;
+                                            
+                                            // Constrói a bounding box apenas das palavras que formam o match (não da linha inteira!)
+                                            let matchEnd = matchIdx + cleanStr.length;
+                                            let charCursor = 0;
+                                            let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                            
+                                            line.words.forEach(w => {
+                                                let wStart = line.text.indexOf(w.text, charCursor);
+                                                if(wStart === -1) wStart = charCursor;
+                                                let wEnd = wStart + w.text.length;
+                                                charCursor = wEnd;
+                                                
+                                                if (wEnd > matchIdx && wStart < matchEnd) {
+                                                    if (w.bbox.x0 < bbox.x0) bbox.x0 = w.bbox.x0;
+                                                    if (w.bbox.y0 < bbox.y0) bbox.y0 = w.bbox.y0;
+                                                    if (w.bbox.x1 > bbox.x1) bbox.x1 = w.bbox.x1;
+                                                    if (w.bbox.y1 > bbox.y1) bbox.y1 = w.bbox.y1;
+                                                }
+                                            });
+                                            
+                                            if(bbox.x0 === 9999) bbox = line.bbox; // fallback extremo
+                                            
+                                            const w = (bbox.x1 - bbox.x0) + 10;
+                                            const h = (bbox.y1 - bbox.y0) + 8;
+                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${bbox.y0 - 4}px`, `${bbox.x0 - 5}px`);
+
+                                            for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
+                                        }
                                     }
-                                    if (matchStr) break;
-                                }
-                                
-                                if (matchStr) {
-                                    logDebug(`>>> TARJADO VIA OCR: [${matchStr}]`, 'match');
-                                    tarjasDetectadas++;
-                                    const w = (line.bbox.x1 - line.bbox.x0) + 15;
-                                    const h = (line.bbox.y1 - line.bbox.y0) + 10;
-                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
-                                }
+                                });
                             });
                         }
                     }
                 }
                 
-                logDebug(`\n[SUCESSO] ${tarjasDetectadas} tarjas aplicadas.`);
+                logDebug(`\n[SUCESSO] ${tarjasDetectadas} tarjas sugeridas prontas para revisão.`);
                 alert(`Concluído! Encontramos ${tarjasDetectadas} potenciais dados sensíveis.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
                 scanContainer.style.display = "none";
                 btn.disabled = false;
@@ -530,7 +552,7 @@
 
         document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
-            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada!"); return; }
+            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
             try {
                 const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
                 const paginasPdfLib = pdfDoc.getPages();
