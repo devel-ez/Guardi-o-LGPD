@@ -65,8 +65,6 @@
                 <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">💾 SALVAR PDF HIGIENIZADO</button>
                 <button id="btn-new-doc" style="width:100%;padding:10px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;margin-top:4px;">📄 Carregar Novo Documento</button>
             </div>
-            
-            <div id="lgpd-status-log" style="font-size:11px;color:#64748b;text-align:center;margin-top:auto;">Carregando infraestrutura...</div>
         </div>
     `;
     document.body.appendChild(root);
@@ -88,9 +86,8 @@
             await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            document.getElementById('lgpd-status-log').innerText = "Sistema Pronto.";
         } catch (err) {
-            document.getElementById('lgpd-status-log').innerText = "Erro nas dependências.";
+            console.error("Erro nas dependências.");
         }
     }
 
@@ -140,7 +137,6 @@
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
             await renderizarDocumento(loadContainer);
         } catch (err) {
-            alert("Erro ao ler PDF.");
             console.error(err);
         }
     }
@@ -155,9 +151,8 @@
 
         for (let i = 1; i <= totalPages; i++) {
             loadStatus.innerText = `Renderizando pág. ${i} de ${totalPages}...`;
-            let pct = Math.round((i / totalPages) * 100);
-            loadBar.style.width = `${pct}%`;
-            loadPercent.innerText = `${pct}%`;
+            loadBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
+            loadPercent.innerText = `${Math.round((i / totalPages) * 100)}%`;
             await new Promise(r => setTimeout(r, 20));
 
             const page = await globalPdfJsDoc.getPage(i);
@@ -188,15 +183,12 @@
 
         const controls = document.createElement('div');
         controls.style.cssText = "display:flex; z-index:10001;";
-        
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
-        
         const btnConfirmar = document.createElement('button');
         btnConfirmar.className = 'btn-tarja-ctrl confirmar';
         btnConfirmar.innerHTML = '✓';
-        
         controls.appendChild(btnRemover);
         controls.appendChild(btnConfirmar);
         tarja.appendChild(controls);
@@ -264,23 +256,18 @@
             this.style.display = 'none'; 
         };
 
-        // --- DICIONÁRIO DE EXCLUSÃO (Para não tarjar nomes inofensivos) ---
+        // EXCLUSÕES MAIS INTELIGENTES
         const termosIgnorados = /COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|NOME|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|OBS|ORD|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M/i;
 
-        // --- MÁSCARAS DE BUSCA ARRASTÃO ---
+        // MASCRAS SIMPLIFICADAS PARA EVITAR QUEBRAS
         const regexesBusca = [
-            /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF Padrão
-            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Implícito
-            /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*(?:\d\s*[\d.\-\/]\s*){4,}\b/gi, // RG
-            /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*(?:[\d.\-\/]\s*)+\b/gi, // Identidade Militar
-            /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP Padrão
-            /(?:^|\D)((?:\d\s*){8})(?!\d)/gi, // CEP Implícito
+            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Tolerante
+            /(?:^|\D)((?:\d\s*){8,11})(?!\d)/g, // Identidades ou qualquer número de 8 a 11 dígitos
             /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
             /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
-            /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereço
-            /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura Digital
-            /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}))+\b/g, // Nomes Completos Livres (Maiúsculo ou Minúsculo)
-            /(?:^|\D)(\d{8,11})(?!\d)/g // Arrastão de Números Longos (Pega Identidades sem pontuação)
+            /gov\.br(?:\/assinatura)?/gi, // Assinatura Digital
+            // NOVO REGEX DE NOME: Mais de 2 palavras maiúsculas seguidas
+            /[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})+/g
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -294,9 +281,12 @@
                 const totalPages = globalPdfJsDoc.numPages;
                 let tarjasDetectadas = 0;
 
+                console.log("=== INICIANDO VARREDURA (DEBUG) ===");
+
                 for (let i = 1; i <= totalPages; i++) {
                     scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
                     scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
+                    
                     const page = await globalPdfJsDoc.getPage(i);
                     const viewport = page.getViewport({ scale: 1.5 });
                     const textContent = await page.getTextContent();
@@ -306,7 +296,6 @@
                         const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                         
                         if (validItems.length > 10) {
-                            // --- MODO TEXTO NATIVO (Reconstrução Exata) ---
                             const linhas = [];
                             let linhaAtual = null;
 
@@ -324,11 +313,10 @@
                                 if (linhaAtual.tokens.length > 0) {
                                     const lastItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
                                     const distX = item.transform[4] - (lastItem.transform[4] + lastItem.width);
-                                    sep = distX > 15 ? ' | ' : ' ';
+                                    sep = distX > 10 ? ' | ' : ' ';
                                 }
                                 linhaAtual.tokens.push(item);
                                 
-                                // Mapeia exatamente a origem de cada caractere para construir a tarja precisa
                                 for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
                                 for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
                                 
@@ -336,13 +324,15 @@
                             });
 
                             linhas.forEach(linha => {
+                                // LOG DE RASTREIO - Exibe a linha que o PDF conseguiu ler
+                                console.log(`Página ${i} | Linha Lida:`, linha.texto);
+
                                 const overlaps = new Uint8Array(linha.texto.length);
 
                                 const marcarTrecho = (matchIdx, matchLen) => {
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + matchLen - 1;
                                     
-                                    // Ignora espaços no início e fim para a tarja não ficar grande demais
                                     while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
                                     while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
 
@@ -368,7 +358,6 @@
                                     while ((match = regex.exec(linha.texto)) !== null) {
                                         let matchStr = match[1] || match[0];
 
-                                        // Filtro anti-falsos positivos para impedir que jargões militares sejam tarjados
                                         if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
                                             continue; 
                                         }
@@ -379,6 +368,9 @@
                                             if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
                                         }
                                         if (!hasOverlap) {
+                                            // LOG DE DETECÇÃO - Mostra exatamente a palavra que o robô escolheu tarjar
+                                            console.log(`>>> DADO ENCONTRADO: [${matchStr}]`);
+
                                             marcarTrecho(matchIdx, matchStr.length);
                                             for (let k = 0; k < matchStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
@@ -386,7 +378,6 @@
                                 });
                             });
                         } else {
-                            // --- MODO IMAGEM ESCANEADA (OCR) ---
                             scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
                             if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                             const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
@@ -395,7 +386,7 @@
                                 /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi,
                                 /\d{8,11}/g,
                                 /gov\.br|assinado/gi,
-                                /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}))+\b/g
+                                /[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,})+/g
                             ];
 
                             data.lines.forEach(line => {
@@ -405,6 +396,7 @@
                                     let match;
                                     while ((match = regex.exec(line.text)) !== null) {
                                         if (/[a-z]/i.test(match[0]) && termosIgnorados.test(match[0])) continue;
+                                        console.log(`>>> DADO ENCONTRADO (VIA OCR): [${match[0]}]`);
                                         matched = true;
                                         break;
                                     }
@@ -425,8 +417,6 @@
                 btn.disabled = false;
                 if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
             } catch (e) { 
-                scanStatus.innerText = "Erro no escaneamento.";
-                btn.disabled = false; 
                 console.error(e); 
             }
         };
