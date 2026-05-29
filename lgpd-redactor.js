@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Melhoria nas Tarjas e Botões)
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -253,7 +253,6 @@
                 let topPx = viewCenterY - rect.top;
                 if (topPx < 0) topPx = 40;
                 if (topPx > rect.height) topPx = rect.height - 50;
-                // Tarja manual nasce um pouco mais larga para facilitar
                 injetarTarjaNaPagina(paginaAtual, '200px', '25px', `${topPx}px`, '40px');
             }
         };
@@ -265,19 +264,23 @@
             this.style.display = 'none'; 
         };
 
-        // Regras Focadas: Numéricos + Títulos Pessoais + Nomes + Tabelas
+        // --- DICIONÁRIO DE EXCLUSÃO (Para não tarjar nomes inofensivos) ---
+        const termosIgnorados = /COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|NOME|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|OBS|ORD|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M/i;
+
+        // --- MÁSCARAS DE BUSCA ARRASTÃO ---
         const regexesBusca = [
-            /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF 
-            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Raw Tolerante 
+            /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF Padrão
+            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Implícito
             /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*(?:\d\s*[\d.\-\/]\s*){4,}\b/gi, // RG
             /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*(?:[\d.\-\/]\s*)+\b/gi, // Identidade Militar
-            /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP Formatted
-            /(?:^|\D)((?:\d\s*){8})(?!\d)/gi, // CEP Raw 
+            /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP Padrão
+            /(?:^|\D)((?:\d\s*){8})(?!\d)/gi, // CEP Implícito
             /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
             /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
-            /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
-            /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
-            /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi // Nomes rotulados
+            /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereço
+            /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura Digital
+            /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}))+\b/g, // Nomes Completos Livres (Maiúsculo ou Minúsculo)
+            /(?:^|\D)(\d{8,11})(?!\d)/g // Arrastão de Números Longos (Pega Identidades sem pontuação)
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -303,7 +306,7 @@
                         const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                         
                         if (validItems.length > 10) {
-                            // --- MODO TEXTO (MATEMÁTICA AVANÇADA DE TABELAS) ---
+                            // --- MODO TEXTO NATIVO (Reconstrução Exata) ---
                             const linhas = [];
                             let linhaAtual = null;
 
@@ -324,40 +327,34 @@
                                     sep = distX > 15 ? ' | ' : ' ';
                                 }
                                 linhaAtual.tokens.push(item);
-                                for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push(item);
-                                for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push(item);
+                                
+                                // Mapeia exatamente a origem de cada caractere para construir a tarja precisa
+                                for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
+                                for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
+                                
                                 linhaAtual.texto += sep + item.str;
                             });
 
-                            const colunasNomePage = [];
                             linhas.forEach(linha => {
-                                linha.tokens.forEach((token, idx) => {
-                                    // Detecção Geométrica: Se a palavra for exatamente "NOME" (Tabela do INFORMEx)
-                                    if (/^NOMES?$/i.test(token.str.trim())) {
-                                        const xMin = token.transform[4] - 15; // Folga para a esquerda
-                                        let xMax = 9999;
-                                        if (idx + 1 < linha.tokens.length) xMax = linha.tokens[idx + 1].transform[4] - 5;
-                                        colunasNomePage.push({ xMin, xMax });
-                                    }
-                                });
-
                                 const overlaps = new Uint8Array(linha.texto.length);
 
                                 const marcarTrecho = (matchIdx, matchLen) => {
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + matchLen - 1;
-                                    if (startIndex >= linha.charMap.length) return;
-                                    if (endIndex >= linha.charMap.length) endIndex = linha.charMap.length - 1;
+                                    
+                                    // Ignora espaços no início e fim para a tarja não ficar grande demais
+                                    while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
+                                    while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
 
-                                    const first = linha.charMap[startIndex];
-                                    const last = linha.charMap[endIndex];
-                                    if (!first || !last || !first.transform || !last.transform) return;
+                                    if (startIndex > endIndex) return;
 
+                                    const first = linha.charMap[startIndex].item;
+                                    const last = linha.charMap[endIndex].item;
+                                    
                                     const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                     const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                     const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
                                     
-                                    // Aumento de 10px na largura e 8px na altura para garantir cobertura total
                                     const h = Math.max((fs * viewport.scale) + 8, 12);
                                     const w = Math.max(x1 - x0 + 10, 15);
                                     
@@ -370,6 +367,12 @@
                                     regex.lastIndex = 0;
                                     while ((match = regex.exec(linha.texto)) !== null) {
                                         let matchStr = match[1] || match[0];
+
+                                        // Filtro anti-falsos positivos para impedir que jargões militares sejam tarjados
+                                        if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
+                                            continue; 
+                                        }
+
                                         let matchIdx = match[1] ? match.index + match[0].indexOf(match[1]) : match.index;
                                         let hasOverlap = false;
                                         for (let k = 0; k < matchStr.length; k++) {
@@ -381,53 +384,34 @@
                                         }
                                     }
                                 });
-
-                                // Processamento da Detecção Geométrica de Colunas (Nomes)
-                                colunasNomePage.forEach(col => {
-                                    const tokensInCol = linha.tokens.filter(t => t.transform[4] >= col.xMin && t.transform[4] <= col.xMax);
-                                    if (tokensInCol.length > 0) {
-                                        const str = tokensInCol.map(t => t.str).join(' ');
-                                        // Pula o próprio cabeçalho e garante que seja texto longo (para não borrar números perdidos)
-                                        if (!/^NOMES?$/i.test(str.trim()) && /[A-Za-zÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}/.test(str)) {
-                                            const first = tokensInCol[0];
-                                            const last = tokensInCol[tokensInCol.length - 1];
-                                            if(!first.transform || !last.transform) return;
-
-                                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                            
-                                            // Expansão protetiva da tarja da coluna
-                                            const h = Math.max((fs * viewport.scale) + 8, 12);
-                                            const w = Math.max(x1 - x0 + 10, 15);
-                                            
-                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 5}px`);
-                                            tarjasDetectadas++;
-                                        }
-                                    }
-                                });
                             });
                         } else {
-                            // --- MODO IMAGEM (OCR ROBUSTO) ---
-                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA Visão)...`;
+                            // --- MODO IMAGEM ESCANEADA (OCR) ---
+                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
                             if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+                            const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
                             
-                            const canvas = pageContainer.querySelector('canvas');
-                            const { data } = await Tesseract.recognize(canvas, 'por', {
-                                logger: m => {
-                                    if(m.status === 'recognizing text') {
-                                        let localPct = Math.round(m.progress * 100);
-                                        scanStatus.innerText = `Pág. ${i} (IA Visual): ${localPct}%`;
-                                    }
-                                }
-                            });
-
-                            const ocrRegex = /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b|\d{8,11}|gov\.br|assinado/gi;
+                            const ocrRegexes = [
+                                /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi,
+                                /\d{8,11}/g,
+                                /gov\.br|assinado/gi,
+                                /\b(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,})(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+(?:[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-záàãâéêíóõôúüç]{2,}|[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}))+\b/g
+                            ];
 
                             data.lines.forEach(line => {
-                                if (line.text.match(ocrRegex)) {
+                                let matched = false;
+                                ocrRegexes.forEach(regex => {
+                                    regex.lastIndex = 0;
+                                    let match;
+                                    while ((match = regex.exec(line.text)) !== null) {
+                                        if (/[a-z]/i.test(match[0]) && termosIgnorados.test(match[0])) continue;
+                                        matched = true;
+                                        break;
+                                    }
+                                });
+                                
+                                if (matched) {
                                     tarjasDetectadas++;
-                                    // Expansão de segurança na imagem: +15px
                                     const w = (line.bbox.x1 - line.bbox.x0) + 15;
                                     const h = (line.bbox.y1 - line.bbox.y0) + 10;
                                     injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
@@ -436,7 +420,7 @@
                         }
                     }
                 }
-                alert(`Concluído! ${tarjasDetectadas} possíveis dados sensíveis encontrados.`);
+                alert(`Concluído! Encontramos ${tarjasDetectadas} potenciais dados sensíveis.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
                 scanContainer.style.display = "none";
                 btn.disabled = false;
                 if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
