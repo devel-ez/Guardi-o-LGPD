@@ -1,7 +1,6 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -14,19 +13,16 @@
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
-        /* Scroll customizado para o console */
         #lgpd-debug-log::-webkit-scrollbar { width: 6px; }
         #lgpd-debug-log::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS
     let pdfDocInstance = null; 
     let globalPdfJsDoc = null;
     let objectUrl = null; 
     let originalArrayBuffer = null;
 
-    // 3. Painel Lateral (UI)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:380px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -80,18 +76,17 @@
     workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 410px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
     document.body.appendChild(workspace);
 
-    // Sistema de Log Customizado
     function logDebug(msg, tipo = 'info') {
         const logDiv = document.getElementById('lgpd-debug-log');
         if (logDiv) {
-            let cor = '#10b981'; // Verde padrão
-            if (tipo === 'match') cor = '#f59e0b'; // Laranja para dado encontrado
-            if (tipo === 'error') cor = '#ef4444'; // Vermelho para erro
+            let cor = '#10b981'; 
+            if (tipo === 'match') cor = '#f59e0b'; 
+            if (tipo === 'error') cor = '#ef4444'; 
             
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
-        console.log(msg); // Mantém no F12 também
+        console.log(msg);
     }
 
     document.getElementById('btn-toggle-log').onclick = function() {
@@ -291,16 +286,20 @@
             this.style.display = 'none'; 
         };
 
-        // --- O SEGREDO: Uso da Tag \b para impedir que ORD bloqueie LEONARDO ---
-        const termosIgnorados = /\b(COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|NOME|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|OBS|ORD|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M)\b/i;
+        // --- O MEGA DICIONÁRIO MILITAR E ADMINISTRATIVO (Anti Falso-Positivo) ---
+        // Agora com muito mais jargões, meses, e delimitado por bordas exatas de palavras
+        const termosIgnorados = /\b(COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|S[AÃ]O PAULO|RIO DE JANEIRO|BRAS[IÍ]LIA|JANEIRO|FEVEREIRO|MAR[CÇ]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|RESENDE|CURITIBA|FORTALEZA|RECIFE|MANAUS|BEL[EÉ]M|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O)\b/i;
 
+        // --- EXPRESSÕES DE CAPTURA ALVO (Enxutas e Precisas) ---
         const regexesBusca = [
-            /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g, // CPF 
-            /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // Arrastão Numérico: RG, Identidades Militares, RGs e CPFs crus
-            /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/g, // Telefone
-            /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, // Email
-            /gov\.br(?:\/assinatura)?|assinado\s+digitalmente/gi, // Assinatura Eletrônica
-            /\b[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}){1,5}\b/g // Nomes Próprios
+            /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g, // 1. CPF Completo
+            /(?:^|\b|\D)(\d{8,11})(?!\d)/g, // 2. RG, CNH (11), Identidade Militar, CEPs Crus
+            /\b(\d{5}-\d{3})\b/g, // 3. CEP Formatado
+            /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g, // 4. Telefone
+            /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g, // 5. E-mail
+            /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi, // 6. Assinaturas Eletrônicas
+            /\b((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6})\b/gi, // 7. Endereços
+            /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,4})\b/g // 8. Nome Próprio (Garante 2 a 5 palavras estruturadas)
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -310,7 +309,6 @@
             const scanBar = document.getElementById('lgpd-scan-bar');
             btn.disabled = true; scanContainer.style.display = "block";
 
-            // Abre o console automaticamente se estiver fechado
             document.getElementById('lgpd-debug-log').style.display = 'block';
 
             try {
@@ -332,8 +330,6 @@
                         const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                         
                         if (validItems.length > 10) {
-                            logDebug(`[Nativo] Extraindo texto da página ${i}...`);
-                            
                             const linhas = [];
                             let linhaAtual = null;
 
@@ -353,7 +349,6 @@
                                     const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
                                     const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
                                     
-                                    // Tolerância de reconstrução de palavras
                                     if (distX > 25) {
                                         sep = ' | ';
                                     } else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) {
@@ -398,10 +393,11 @@
                                     let match;
                                     regex.lastIndex = 0;
                                     while ((match = regex.exec(linha.texto)) !== null) {
+                                        // O Grupo 1 sempre guarda o texto exato para evitar que a tarja cubra caracteres ao redor
                                         let matchStr = match[1] || match[0];
 
                                         if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
-                                            logDebug(`[Filtro] Ignorado por ser Jargão: ${matchStr}`);
+                                            logDebug(`[Ignorado] ${matchStr}`);
                                             continue; 
                                         }
 
@@ -411,7 +407,7 @@
                                             if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
                                         }
                                         if (!hasOverlap) {
-                                            logDebug(`>>> DADO ENCONTRADO: [${matchStr}]`, 'match');
+                                            logDebug(`>>> ENCONTRADO: [${matchStr}]`, 'match');
                                             marcarTrecho(matchIdx, matchStr.length);
                                             for (let k = 0; k < matchStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
@@ -419,11 +415,10 @@
                                 });
                             });
                         } else {
-                            logDebug(`[OCR] Imagem detectada na pág ${i}. Acionando IA Visual...`);
+                            logDebug(`[OCR] Imagem detectada na pág ${i}. Lendo visualmente...`);
                             scanStatus.innerText = `Pág. ${i}: Processando OCR (IA Visão)...`;
                             
                             if (typeof Tesseract === 'undefined') {
-                                logDebug("Baixando pacotes de Inteligência Artificial...");
                                 await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
                             }
                             
@@ -443,8 +438,11 @@
                                     regex.lastIndex = 0;
                                     let match;
                                     while ((match = regex.exec(line.text)) !== null) {
-                                        if (/[a-z]/i.test(match[0]) && termosIgnorados.test(match[0])) continue;
-                                        logDebug(`>>> DADO OCR ENCONTRADO: [${match[0]}]`, 'match');
+                                        let matchStr = match[1] || match[0];
+                                        if (/[a-z]/i.test(matchStr) && termosIgnorados.test(matchStr)) {
+                                            continue;
+                                        }
+                                        logDebug(`>>> ENCONTRADO VIA OCR: [${matchStr}]`, 'match');
                                         matched = true;
                                         break;
                                     }
@@ -461,13 +459,13 @@
                     }
                 }
                 
-                logDebug(`\n[SUCESSO] Fim. ${tarjasDetectadas} tarjas aplicadas.`);
-                alert(`Concluído! Encontramos ${tarjasDetectadas} potenciais dados sensíveis.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
+                logDebug(`\n[SUCESSO] ${tarjasDetectadas} tarjas sugeridas prontas para revisão.`);
+                alert(`Concluído! Encontramos ${tarjasDetectadas} dados.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
                 scanContainer.style.display = "none";
                 btn.disabled = false;
                 if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
             } catch (e) { 
-                logDebug(`Erro Crítico: ${e.message}`, 'error');
+                logDebug(`Erro: ${e.message}`, 'error');
                 scanStatus.innerText = "Erro no escaneamento.";
                 btn.disabled = false; 
             }
