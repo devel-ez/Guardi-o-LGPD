@@ -86,6 +86,7 @@
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
             if (tipo === 'trim') cor = '#38bdf8';
+            if (tipo === 'skip') cor = '#94a3b8'; // Cinza para ignorados
             
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
@@ -295,18 +296,17 @@
             this.style.display = 'none'; 
         };
 
-        // 1. BLACKLIST NUCLEAR (Se essa palavra estiver no meio da frase, destrói a tarja inteira)
-        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA";
+        // 1. A LISTA NUCLEAR DE CABEÇALHOS (Agora reforçada com termos de Licitações)
+        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG";
         const nuclearBlacklist = new RegExp(`\\b(${baseNuclear})\\b`, 'i');
 
-        // 2. APARADOR DE PATENTES (Tesoura que corta as pontas, mas mantém o nome do meio)
+        // 2. APARADOR DE PATENTES (Só corta das pontas para salvar o nome do meio)
         const ranksToTrim = new Set([
-            "MAJ","TEN","CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS"
+            "MAJ","TEN","CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"
         ]);
 
         function limparBordasDoNome(matchStr) {
             let words = matchStr.split(/\s+/);
-            
             while (words.length > 0) {
                 let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]]/g, ''));
                 if (ranksToTrim.has(limpa) || limpa.length <= 2) words.shift();
@@ -320,16 +320,14 @@
             return words.join(' ');
         }
 
-        // 3. ARQUITETURA CLASSIFICADA
+        // 3. AS MÁSCARAS DE BUSCA EXATA (Sem Email e Telefone)
         const regexesBusca = [
             { tipo: 'cpf', r: /(?:^|\D)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/g }, 
-            { tipo: 'num', r: /(?:^|\b|\D)(\d{8,11})(?!\d)/g }, 
-            { tipo: 'tel', r: /(\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4})/g },
-            { tipo: 'email', r: /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g }, 
+            { tipo: 'num', r: /(?:^|\b|\D)(\d{8,14})(?!\d)/g }, 
             { tipo: 'ass', r: /((?:gov\.br(?:\/assinatura)?|assinado\s+(?:digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
-            { tipo: 'end', r: /\b((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6})\b/gi },
-            // Nova Regra de Nome: Ignora tudo o que tem letras minúsculas (Mata Cidades e siglas OMs)
-            { tipo: 'nome', r: /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}){1,5})\b/g } 
+            { tipo: 'end', r: /\b((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\b[^\n]{5,100}\b\d{1,6})\b/gi },
+            { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
+            { tipo: 'nome', r: /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,6})\b/g } 
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -391,7 +389,7 @@
                             linhas.forEach(linha => {
                                 const overlaps = new Uint8Array(linha.texto.length);
 
-                                const marcarTrecho = (matchIdx, matchLen) => {
+                                const marcarTrecho = (matchIdx, matchLen, tipo) => {
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + matchLen - 1;
                                     
@@ -420,12 +418,24 @@
                                         let cleanStr = originalStr;
 
                                         if (regObj.tipo === 'nome') {
-                                            if (nuclearBlacklist.test(originalStr)) {
-                                                logDebug(`[Nuclear] Ignorado (Jargão Estrutural): ${originalStr}`);
+                                            // Trava 1: Se for CNPJ/Pessoa Jurídica Disfarçada
+                                            if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) {
+                                                logDebug(`[PJ] Ignorado: ${originalStr}`, 'skip');
                                                 continue; 
                                             }
+
+                                            // Trava 2: Evita pegar endereço como "nome" (Deixa a regra de Endereço pegar ele)
+                                            if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) {
+                                                continue;
+                                            }
+
+                                            // Trava 3: Blacklist Nuclear (Cabeçalhos)
+                                            if (nuclearBlacklist.test(originalStr)) {
+                                                logDebug(`[Nuclear] Ignorado: ${originalStr}`, 'skip');
+                                                continue; 
+                                            }
+
                                             cleanStr = limparBordasDoNome(originalStr);
-                                            // Se cortou tudo e sobrou 1 palavra, pode ser o OCR grudando. Se for > 10 chars, deixa passar.
                                             if (cleanStr.split(/\s+/).length < 2 && cleanStr.length < 10) continue; 
                                         }
 
@@ -437,8 +447,8 @@
                                             if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
                                         }
                                         if (!hasOverlap) {
-                                            logDebug(`>>> TARJADO: [${cleanStr}]`, 'match');
-                                            marcarTrecho(matchIdx, cleanStr.length);
+                                            logDebug(`>>> TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
+                                            marcarTrecho(matchIdx, cleanStr.length, regObj.tipo);
                                             for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
                                     }
@@ -466,7 +476,10 @@
                                         let cleanStr = originalStr;
                                         
                                         if (regObj.tipo === 'nome') {
+                                            if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) continue;
+                                            if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue;
                                             if (nuclearBlacklist.test(originalStr)) continue;
+                                            
                                             cleanStr = limparBordasDoNome(originalStr);
                                             if (cleanStr.split(/\s+/).length < 2 && cleanStr.length < 10) continue;
                                         }
@@ -480,7 +493,7 @@
                                         }
 
                                         if (!hasOverlap) {
-                                            logDebug(`>>> TARJADO VIA OCR: [${cleanStr}]`, 'match');
+                                            logDebug(`>>> TARJADO OCR [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
                                             tarjasDetectadas++;
                                             
                                             let matchEnd = matchIdx + cleanStr.length;
@@ -528,7 +541,7 @@
             }
         };
 
-       document.getElementById('btn-save-pdf').onclick = async function() {
+        document.getElementById('btn-save-pdf').onclick = async function() {
             const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
             if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
             
@@ -538,52 +551,34 @@
             btn.disabled = true;
 
             try {
-                // Carrega o PDF Original
                 const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
                 
-                // === A MÁGICA ACONTECE AQUI ===
-                // Pega todos os formulários e assinaturas flutuantes e "derrete" (achata) contra o papel base.
+                // MÁGICA GOV.BR: Achata assinaturas flutuantes contra o papel
                 const form = pdfDoc.getForm();
                 try {
                     form.flatten();
-                    logDebug("[Segurança] Assinaturas digitais e formulários foram achatados com sucesso.");
+                    logDebug("[Segurança] Assinaturas digitais e formulários achatados.");
                 } catch(err) {
-                    logDebug("[Aviso] Não foi possível achatar formulários, ou o PDF não possui campos flutuantes.");
+                    logDebug("[Aviso] Sem campos flutuantes para achatar.");
                 }
 
                 const paginasPdfLib = pdfDoc.getPages();
-                
                 tarjas.forEach(tarja => {
                     const container = tarja.parentElement;
                     const pageNum = parseInt(container.getAttribute('data-page-number'));
                     const paginaAlvo = paginasPdfLib[pageNum - 1];
                     const { width: pdfWidth } = paginaAlvo.getSize();
-                    
                     const scaleX = pdfWidth / container.offsetWidth;
                     const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
-                    
-                    // Desenha o retângulo preto definitivo
-                    paginaAlvo.drawRectangle({ 
-                        x: parseFloat(tarja.style.left) * scaleX, 
-                        y: yPdf, 
-                        width: tarja.offsetWidth * scaleX, 
-                        height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), 
-                        color: PDFLib.rgb(0, 0, 0) 
-                    });
+                    paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
                 });
-
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = "documento_tratado_lgpd.pdf";
                 link.click();
-                
-                logDebug("[Sucesso] PDF salvo e baixado para o seu computador.");
-            } catch(e) { 
-                logDebug(`[Erro Fatal] Falha ao salvar PDF: ${e.message}`, 'error');
-                alert("Erro ao salvar PDF. Verifique o console de rastreio."); 
-            } finally {
+            } catch(e) { alert("Erro ao salvar PDF."); } finally {
                 btn.innerHTML = textoOriginal;
                 btn.disabled = false;
             }
