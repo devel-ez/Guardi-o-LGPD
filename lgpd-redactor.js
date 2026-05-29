@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos
+    // 1. Estilos (Melhoria nas Tarjas e Botões)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -49,7 +49,8 @@
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:12px;">
-                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear Documento (Modo Inteligente)</button>
+                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear Documento Inteligente</button>
+                
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
                         <span id="lgpd-scan-status">Iniciando análise...</span>
@@ -57,12 +58,14 @@
                     </div>
                     <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#059669;"></div></div>
                 </div>
+
                 <button id="btn-confirm-all" style="width:100%;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;display:none;">✅ Confirmar Todas as Sugestões</button>
                 <button id="btn-add-manual" style="width:100%;padding:10px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">➕ Criar Nova Tarja Manual</button>
                 <hr style="border:0;border-top:1px solid #e2e8f0;margin:4px 0;">
                 <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">💾 SALVAR PDF HIGIENIZADO</button>
                 <button id="btn-new-doc" style="width:100%;padding:10px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;margin-top:4px;">📄 Carregar Novo Documento</button>
             </div>
+            
             <div id="lgpd-status-log" style="font-size:11px;color:#64748b;text-align:center;margin-top:auto;">Carregando infraestrutura...</div>
         </div>
     `;
@@ -129,6 +132,7 @@
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
         await new Promise(r => setTimeout(r, 50)); 
+
         try {
             originalArrayBuffer = await file.arrayBuffer();
             pdfDocInstance = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
@@ -155,6 +159,7 @@
             loadBar.style.width = `${pct}%`;
             loadPercent.innerText = `${pct}%`;
             await new Promise(r => setTimeout(r, 20));
+
             const page = await globalPdfJsDoc.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
             const pageContainer = document.createElement('div');
@@ -162,6 +167,7 @@
             pageContainer.setAttribute('data-page-number', i);
             pageContainer.style.width = `${viewport.width}px`;
             pageContainer.style.height = `${viewport.height}px`;
+
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -179,18 +185,23 @@
         tarja.className = 'tarja-lgpd-custom';
         tarja.style.width = w; tarja.style.height = h;
         tarja.style.top = top; tarja.style.left = left;
+
         const controls = document.createElement('div');
         controls.style.cssText = "display:flex; z-index:10001;";
+        
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
+        
         const btnConfirmar = document.createElement('button');
         btnConfirmar.className = 'btn-tarja-ctrl confirmar';
         btnConfirmar.innerHTML = '✓';
+        
         controls.appendChild(btnRemover);
         controls.appendChild(btnConfirmar);
         tarja.appendChild(controls);
         pageContainer.appendChild(tarja);
+
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
         btnConfirmar.onclick = (e) => { e.stopPropagation(); tarja.classList.add('confirmada'); controls.style.display = 'none'; };
         tarja.onclick = (e) => { if (tarja.classList.contains('confirmada')) { tarja.classList.remove('confirmada'); controls.style.display = 'flex'; } };
@@ -204,7 +215,7 @@
             if (e.target.tagName.toLowerCase() === 'button') return;
             isDragging = true;
             startX = e.clientX - tarja.offsetLeft;
-            startY = e.clientY - tarja.offsetTop; // <-- TYPO CORRIGIDO AQUI!
+            startY = e.clientY - tarja.offsetTop; 
         });
         document.addEventListener('mousemove', function(e) {
             if (!isDragging) return;
@@ -242,7 +253,8 @@
                 let topPx = viewCenterY - rect.top;
                 if (topPx < 0) topPx = 40;
                 if (topPx > rect.height) topPx = rect.height - 50;
-                injetarTarjaNaPagina(paginaAtual, '160px', '25px', `${topPx}px`, '40px');
+                // Tarja manual nasce um pouco mais larga para facilitar
+                injetarTarjaNaPagina(paginaAtual, '200px', '25px', `${topPx}px`, '40px');
             }
         };
 
@@ -253,21 +265,20 @@
             this.style.display = 'none'; 
         };
 
-        // Expressões regulares refatoradas e cross-browser (sem Lookbehinds problemáticos)
+        // Regras Focadas: Numéricos + Títulos Pessoais + Nomes + Tabelas
         const regexesBusca = [
             /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b/gi, // CPF 
-            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Raw Tolerante (seguro)
+            /(?:^|\D)((?:\d\s*){11})(?!\d)/gi, // CPF Raw Tolerante 
             /\b(?:RG|R\.G\.|C\.I\.?|Identidade(?:\s+Civil)?|Cédula)\s*[:\-]?\s*(?:\d\s*[\d.\-\/]\s*){4,}\b/gi, // RG
             /\b(?:IM|I\.M\.|Ident\.?\s*Mil\.?|Identidade\s+Militar|Matr[íi]cula|Mat\.)\s*[:\-]?\s*(?:[\d.\-\/]\s*)+\b/gi, // Identidade Militar
             /\b(?:\d\s*){5}-\s*(?:\d\s*){3}\b/gi, // CEP Formatted
-            /(?:^|\D)((?:\d\s*){8})(?!\d)/gi, // CEP Raw (seguro)
+            /(?:^|\D)((?:\d\s*){8})(?!\d)/gi, // CEP Raw 
             /\(?\d{2}\)?[\s.\-]?(?:9[\s.]?)?\d{4}[\s.\-]\d{4}/gi, // Telefone
             /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi, // Email
             /\b(?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS)\b[^\n]{2,80}\b\d{1,6}\b/gi, // Endereco
             /assinado\s+(?:eletronicamente|digitalmente)|assinatura\s+(?:eletr[ôo]nica|digital)|certificado\s+digital|ICP-?Brasil|gov\.br(?:\/assinatura)?/gi, // Assinatura
             /\b(?:Nome|Servidor[a]?|Candidato[a]?|Requerente|Interessado[a]?|Respons[aá]vel|Paciente|Empregado[a]?|Militar|Declarante|Requerido[a]?|Signat[aá]rio[a]?|C[oô]njuge|Titular)\s*:+\s*[AÁÀÃÂÉÊÍÓÕÔÚÜÇ][^\d\n,;]{5,60}/gi // Nomes rotulados
         ];
-        const regexOCR = /\d{3}\s*\.\s*\d{3}\s*\.\s*\d{3}\s*-\s*\d{2}|\d{8,11}|\d{5}\s*-\s*\d{3}|\(\d{2}\)\s*\d{4,5}-\d{4}|Documento assinado digitalmente|gov\.br/gi;
 
         document.getElementById('btn-auto-scan').onclick = async function() {
             const btn = this;
@@ -321,10 +332,11 @@
                             const colunasNomePage = [];
                             linhas.forEach(linha => {
                                 linha.tokens.forEach((token, idx) => {
+                                    // Detecção Geométrica: Se a palavra for exatamente "NOME" (Tabela do INFORMEx)
                                     if (/^NOMES?$/i.test(token.str.trim())) {
-                                        const xMin = token.transform[4] - 10;
+                                        const xMin = token.transform[4] - 15; // Folga para a esquerda
                                         let xMax = 9999;
-                                        if (idx + 1 < linha.tokens.length) xMax = linha.tokens[idx + 1].transform[4] - 10;
+                                        if (idx + 1 < linha.tokens.length) xMax = linha.tokens[idx + 1].transform[4] - 5;
                                         colunasNomePage.push({ xMin, xMax });
                                     }
                                 });
@@ -344,9 +356,12 @@
                                     const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                     const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                     const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                    const h = Math.max((fs * viewport.scale) + 6, 12);
-                                    const w = Math.max(x1 - x0 + 4, 15);
-                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
+                                    
+                                    // Aumento de 10px na largura e 8px na altura para garantir cobertura total
+                                    const h = Math.max((fs * viewport.scale) + 8, 12);
+                                    const w = Math.max(x1 - x0 + 10, 15);
+                                    
+                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 5}px`);
                                     tarjasDetectadas++;
                                 };
 
@@ -367,11 +382,13 @@
                                     }
                                 });
 
+                                // Processamento da Detecção Geométrica de Colunas (Nomes)
                                 colunasNomePage.forEach(col => {
                                     const tokensInCol = linha.tokens.filter(t => t.transform[4] >= col.xMin && t.transform[4] <= col.xMax);
                                     if (tokensInCol.length > 0) {
                                         const str = tokensInCol.map(t => t.str).join(' ');
-                                        if (!/^NOMES?$/i.test(str.trim()) && /[A-Za-zÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}/.test(str)) {
+                                        // Pula o próprio cabeçalho e garante que seja texto longo (para não borrar números perdidos)
+                                        if (!/^NOMES?$/i.test(str.trim()) && /[A-Za-zÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}/.test(str)) {
                                             const first = tokensInCol[0];
                                             const last = tokensInCol[tokensInCol.length - 1];
                                             if(!first.transform || !last.transform) return;
@@ -379,23 +396,41 @@
                                             const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                             const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                             const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                            const h = Math.max((fs * viewport.scale) + 6, 12);
-                                            const w = Math.max(x1 - x0 + 4, 15);
-                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 2}px`);
+                                            
+                                            // Expansão protetiva da tarja da coluna
+                                            const h = Math.max((fs * viewport.scale) + 8, 12);
+                                            const w = Math.max(x1 - x0 + 10, 15);
+                                            
+                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${y0 - h + 2}px`, `${x0 - 5}px`);
                                             tarjasDetectadas++;
                                         }
                                     }
                                 });
                             });
                         } else {
-                            // --- MODO IMAGEM (OCR) ---
-                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
+                            // --- MODO IMAGEM (OCR ROBUSTO) ---
+                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA Visão)...`;
                             if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                            const { data } = await Tesseract.recognize(pageContainer.querySelector('canvas'), 'por');
+                            
+                            const canvas = pageContainer.querySelector('canvas');
+                            const { data } = await Tesseract.recognize(canvas, 'por', {
+                                logger: m => {
+                                    if(m.status === 'recognizing text') {
+                                        let localPct = Math.round(m.progress * 100);
+                                        scanStatus.innerText = `Pág. ${i} (IA Visual): ${localPct}%`;
+                                    }
+                                }
+                            });
+
+                            const ocrRegex = /\b(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[.\s]\s*(?:\d\s*){3}[-\s]\s*(?:\d\s*){2}\b|\d{8,11}|gov\.br|assinado/gi;
+
                             data.lines.forEach(line => {
-                                if (line.text.match(regexOCR)) {
+                                if (line.text.match(ocrRegex)) {
                                     tarjasDetectadas++;
-                                    injetarTarjaNaPagina(pageContainer, `${line.bbox.x1 - line.bbox.x0 + 10}px`, `${line.bbox.y1 - line.bbox.y0 + 10}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
+                                    // Expansão de segurança na imagem: +15px
+                                    const w = (line.bbox.x1 - line.bbox.x0) + 15;
+                                    const h = (line.bbox.y1 - line.bbox.y0) + 10;
+                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${line.bbox.y0 - 5}px`, `${line.bbox.x0 - 5}px`);
                                 }
                             });
                         }
