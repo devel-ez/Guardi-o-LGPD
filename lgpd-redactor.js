@@ -19,13 +19,11 @@
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS
     let pdfDocInstance = null; 
     let globalPdfJsDoc = null;
     let objectUrl = null; 
     let originalArrayBuffer = null;
 
-    // 3. Painel Lateral (UI)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:380px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -266,9 +264,11 @@
             this.style.display = 'none'; 
         };
 
-        const baseNuclear = "COMANDO|MILITARES|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG|CAMARA|NACIONAL|MODELOS|LICITACOES|CONTRATOS|CONSULTORIA|SET|APROV|GERENCIADOR|PARTICIPANTE|FORMALIZACAO|CADASTRO|RESERVA|SISTEMA|ATUALIZACAO|NEGOCIACAO|REMANEJAMENTO|CANCELAMENTO|LICITANTE|VENCEDOR|PENALIDADES|GERAIS|MATRICULA|FUNCIONAL|ATA|ORDENADOR|DESPESAS|MODALIDADE|PARTICIPANTES|ADESAO|ACRESCIMO|HOMOLOGACAO|ADJUDICATARIO|COMPROMISSO|INVILABILIZEM|TRIBUNAL|CONTAS|UNIAO|ESTADO|MUNICIPIO|FAVORECIDO|PORTARIA|NOMEADO|DEFESA|DISPOSICOES|SEGUIR|MNE|QISV|DGP|DTI|ODOS|TENCEL|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VITORIA";
-        const nuclearBlacklist = new RegExp(`\\b(${baseNuclear})\\b`, 'i');
+        // BLACKLIST NUCLEAR (Usando a base de teste para pegar pedaços quebrados do OCR)
+        const baseNuclear = "COMANDO|MILITARES|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG|CAMARA|NACIONAL|MODELOS|LICITACOES|CONTRATOS|CONSULTORIA|SET|APROV|GERENCIADOR|PARTICIPANTE|FORMALIZACAO|CADASTRO|RESERVA|SISTEMA|ATUALIZACAO|NEGOCIACAO|REMANEJAMENTO|CANCELAMENTO|LICITANTE|VENCEDOR|PENALIDADES|GERAIS|MATRICULA|FUNCIONAL|ATA|ORDENADOR|DESPESAS|MODALIDADE|PARTICIPANTES|ADESAO|ACRESCIMO|HOMOLOGACAO|ADJUDICATARIO|COMPROMISSO|INVILABILIZEM|TRIBUNAL|CONTAS|UNIAO|ESTADO|MUNICIPIO|FAVORECIDO|PORTARIA|NOMEADO|DEFESA|DISPOSICOES|SEGUIR|MNE|QISV|ROSTO|RAIGSVIREEE|EEA|DGP|DTI|ODOS|TENCEL|EXTERIOR";
+        const nuclearBlacklist = new RegExp(`(${baseNuclear})`, 'i');
 
+        // 2. APARADOR DE PATENTES (Cortador Limpo)
         const ranksToTrim = new Set([
             "MAJ","TEN","CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"
         ]);
@@ -292,9 +292,11 @@
             { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
             { tipo: 'num', r: /(?:^|\b|\D)(\d{8,11})(?!\d)/g }, 
             { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
-            { tipo: 'end', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\b[^\n]{5,100}\b\d{1,6})\b/gi },
+            // Endereços: Blindado contra falsos "AL" (Alamedas imaginárias)
+            { tipo: 'end', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.|Avenida|Al\.|Alameda|Pça\.|Praça|Tv\.|Travessa|Rod\.|Rodovia|Est\.|Estrada|Qd\.|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\s+[^\n|()\[\]]{5,100}\b\d{1,6})\b/gi },
             { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
-            { tipo: 'nome', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ])([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}){1,6})(?=[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]|$)/g } 
+            // Nomes Próprios Flexíveis (Mas limitados e filtrados pelo Dicionário)
+            { tipo: 'nome', r: /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}){1,6})\b/g } 
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -380,9 +382,10 @@
                                             finalX = x1 - 250;
                                             finalY = y0 - 45;
                                         } else {
-                                            w_val = Math.max(x1 - x0 + 150, 200); 
-                                            h_val = Math.max((fs * viewport.scale) + 30, 40);
-                                            finalX = x0 - 10;
+                                            // Token ICP-Brasil
+                                            w_val = Math.max(x1 - x0 + 150, 250); 
+                                            h_val = Math.max((fs * viewport.scale) + 30, 60);
+                                            finalX = x0 - 20;
                                             finalY = y0 - 15;
                                         }
                                     } else {
@@ -407,7 +410,7 @@
                                         let cleanStr = originalStr;
 
                                         if (regObj.tipo === 'end') {
-                                            if (/[|()\[\]]/.test(originalStr)) continue; // Trava contra linhas sujas de tabelas 
+                                            if (/[|()\[\]]/.test(originalStr)) continue; 
                                         }
 
                                         if (regObj.tipo === 'num') {
@@ -415,14 +418,8 @@
                                         }
 
                                         if (regObj.tipo === 'nome') {
-                                            if (/[a-zà-ÿ]/.test(originalStr)) {
-                                                logDebug(`[Case] Ignorado (Contém minúsculas): ${originalStr}`, 'skip');
-                                                continue;
-                                            }
-
-                                            // Trava Gagueira de OCR
                                             if (/([A-Z])\1{2,}/i.test(originalStr)) {
-                                                logDebug(`[OCR] Ignorado (Lixo Visual/Gagueira): ${originalStr}`, 'skip');
+                                                logDebug(`[OCR] Ignorado (Gagueira/Lixo Visual): ${originalStr}`, 'skip');
                                                 continue;
                                             }
 
@@ -440,8 +437,8 @@
 
                                             cleanStr = limparBordasDoNome(originalStr);
                                             
-                                            // Trava contra aglomerações gigantes de letras sem espaço (ex: INFORMAREESCLARECEREDEVER...)
-                                            if (cleanStr.split(/\s+/).some(w => w.length > 15)) {
+                                            // Trava anti-esmagamento (Bloco gigante de letras)
+                                            if (cleanStr.split(/\s+/).some(w => w.length > 18)) {
                                                 logDebug(`[OCR] Ignorado (Bloco esmagado): ${cleanStr}`, 'skip');
                                                 continue;
                                             }
@@ -494,7 +491,6 @@
                                         }
 
                                         if (regObj.tipo === 'nome') {
-                                            if (/[a-zà-ÿ]/.test(originalStr)) continue;
                                             if (/([A-Z])\1{2,}/i.test(originalStr)) continue;
                                             if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) continue;
                                             if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue;
@@ -503,7 +499,7 @@
                                             if (nuclearBlacklist.test(unaccented)) continue;
                                             
                                             cleanStr = limparBordasDoNome(originalStr);
-                                            if (cleanStr.split(/\s+/).some(w => w.length > 15)) continue;
+                                            if (cleanStr.split(/\s+/).some(w => w.length > 18)) continue;
                                             if (cleanStr.split(/\s+/).length < 2) continue;
                                         }
                                         
@@ -549,9 +545,9 @@
                                                     finalX = bbox.x1 - 250;
                                                     finalY = bbox.y0 - 45;
                                                 } else {
-                                                    w_val = Math.max(bbox.x1 - bbox.x0 + 150, 200);
-                                                    h_val = Math.max(bbox.y1 - bbox.y0 + 30, 40);
-                                                    finalX = bbox.x0 - 10;
+                                                    w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250);
+                                                    h_val = Math.max(bbox.y1 - bbox.y0 + 30, 60);
+                                                    finalX = bbox.x0 - 20;
                                                     finalY = bbox.y0 - 15;
                                                 }
                                             } else {
