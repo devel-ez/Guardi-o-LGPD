@@ -266,9 +266,11 @@
             this.style.display = 'none'; 
         };
 
-        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG|CAMARA|NACIONAL|MODELOS|LICITACOES|CONTRATOS|CONSULTORIA|SET|APROV|GERENCIADOR|PARTICIPANTE|FORMALIZACAO|CADASTRO|RESERVA|SISTEMA|ATUALIZACAO|NEGOCIACAO|REMANEJAMENTO|CANCELAMENTO|LICITANTE|VENCEDOR|PENALIDADES|GERAIS|MATRICULA|FUNCIONAL|ATA|ORDENADOR|DESPESAS|MODALIDADE|PARTICIPANTES|ADESAO|ACRESCIMO|HOMOLOGACAO|ADJUDICATARIO|COMPROMISSO|INVILABILIZEM|TRIBUNAL|CONTAS|UNIAO|ESTADO|MUNICIPIO|FAVORECIDO|PORTARIA|NOMEADO|DEFESA|DISPOSICOES|SEGUIR";
+        // BLACKLIST NUCLEAR DEFINITIVA
+        const baseNuclear = "COMANDO|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG|CAMARA|NACIONAL|MODELOS|LICITACOES|CONTRATOS|CONSULTORIA|SET|APROV|GERENCIADOR|PARTICIPANTE|FORMALIZACAO|CADASTRO|RESERVA|SISTEMA|ATUALIZACAO|NEGOCIACAO|REMANEJAMENTO|CANCELAMENTO|LICITANTE|VENCEDOR|PENALIDADES|GERAIS|MATRICULA|FUNCIONAL|ATA|ORDENADOR|DESPESAS|MODALIDADE|PARTICIPANTES|ADESAO|ACRESCIMO|HOMOLOGACAO|ADJUDICATARIO|COMPROMISSO|INVILABILIZEM|TRIBUNAL|CONTAS|UNIAO|ESTADO|MUNICIPIO|FAVORECIDO";
         const nuclearBlacklist = new RegExp(`\\b(${baseNuclear})\\b`, 'i');
 
+        // 2. APARADOR DE PATENTES (Cortador)
         const ranksToTrim = new Set([
             "MAJ","TEN","CEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"
         ]);
@@ -288,18 +290,23 @@
             return words.join(' ');
         }
 
+        // 3. AS MÁSCARAS DE BUSCA EXATA E MATADORA
         const regexesBusca = [
-            // DOC: Formato de CPFs ou Matrículas com pontos/traços
-            { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
+            // DOCS: CPFs e Matrículas (Ex: 011.628.535-4)
+            { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}))(?!\d)/g }, 
             
-            // ASS: O detonador das assinaturas ICP-Brasil / Gov.br
-            { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+            // NUM: Números crus (RGs), mas evitando datas ou CNPJs
+            { tipo: 'num', r: /(?:^|\b|\D)(\d{7,11})(?!\d)/g }, 
+            
+            // ASS: Identifica gov.br e aciona a explosão da caixa
+            { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|govb|assinado\s+(?:de\s+forma\s+)?(?:digital|digitalmente|eletronicamente)|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
             
             { tipo: 'end', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.?|Avenida|Al\.?|Alameda|Pça\.?|Praça|Tv\.?|Travessa|Rod\.?|Rodovia|Est\.?|Estrada|Qd\.?|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\b[^\n]{5,100}\b\d{1,6})\b/gi },
+            
             { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
             
-            // NOME: Caixa Alta Estrita! Não perdoa minúsculas.
-            { tipo: 'nome', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ])([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{3,}){1,6})(?=[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]|$)/g } 
+            // NOME: Somente e estritamente ALL CAPS
+            { tipo: 'nome', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ])([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}(?:\s+(?:DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]{2,}){1,6})(?=[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ]|$)/g } 
         ];
 
         document.getElementById('btn-auto-scan').onclick = async function() {
@@ -361,7 +368,7 @@
                             linhas.forEach(linha => {
                                 const overlaps = new Uint8Array(linha.texto.length);
 
-                                const marcarTrecho = (matchIdx, matchLen, tipo, cleanStr) => {
+                                const marcarTrecho = (matchIdx, matchLen, tipo) => {
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + matchLen - 1;
                                     
@@ -375,34 +382,14 @@
                                     const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                     const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
                                     
+                                    // EXPLOSÃO GOV.BR: Tarja gigantesca para cobrir o selo
                                     let isAss = (tipo === 'ass');
-                                    let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
-                                    let w_val, h_val, finalX, finalY;
-
-                                    if (isAss) {
-                                        if (isGovBr) {
-                                            // Explosão Esquerda (Padrão Gov.br / ICP)
-                                            w_val = 260; h_val = 90;
-                                            finalX = x1 - 250;
-                                            finalY = y0 - 45;
-                                        } else {
-                                            // Explosão Larga (Outros Tokens)
-                                            w_val = Math.max(x1 - x0 + 150, 200); 
-                                            h_val = Math.max((fs * viewport.scale) + 30, 40);
-                                            finalX = x0 - 10;
-                                            finalY = y0 - 15;
-                                        }
-                                    } else {
-                                        w_val = Math.max(x1 - x0 + 10, 15);
-                                        h_val = Math.max((fs * viewport.scale) + 8, 12);
-                                        finalX = x0 - 5;
-                                        finalY = y0 - h_val + 2;
-                                    }
-
-                                    if (finalX < 0) finalX = 0;
-                                    if (finalY < 0) finalY = 0;
+                                    const h = isAss ? Math.max((fs * viewport.scale) * 5, 70) : Math.max((fs * viewport.scale) + 8, 12);
+                                    const w = isAss ? Math.max(x1 - x0 + 160, 220) : Math.max(x1 - x0 + 10, 15);
+                                    let finalY = isAss ? y0 - h + 25 : y0 - h + 2;
+                                    let finalX = isAss ? x0 - 80 : x0 - 5;
                                     
-                                    injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${finalY}px`, `${finalX}px`);
+                                    injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${finalY}px`, `${finalX}px`);
                                     tarjasDetectadas++;
                                 };
 
@@ -413,13 +400,11 @@
                                         let originalStr = match[1] || match[0];
                                         let cleanStr = originalStr;
 
-                                        if (regObj.tipo === 'nome') {
-                                            // Trava contra minúsculas (Mata os falsos positivos de primeira)
-                                            if (/[a-zà-ÿ]/.test(originalStr)) {
-                                                logDebug(`[Case] Ignorado (Contém minúsculas): ${originalStr}`, 'skip');
-                                                continue;
-                                            }
+                                        if (regObj.tipo === 'num') {
+                                            if (cleanStr.length === 8 && (cleanStr.startsWith('20') || cleanStr.startsWith('19'))) continue;
+                                        }
 
+                                        if (regObj.tipo === 'nome') {
                                             if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) {
                                                 logDebug(`[PJ] Ignorado: ${originalStr}`, 'skip');
                                                 continue; 
@@ -445,7 +430,7 @@
                                         }
                                         if (!hasOverlap) {
                                             logDebug(`>>> TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                            marcarTrecho(matchIdx, cleanStr.length, regObj.tipo, cleanStr);
+                                            marcarTrecho(matchIdx, cleanStr.length, regObj.tipo);
                                             for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
                                     }
@@ -472,8 +457,11 @@
                                         let originalStr = match[1] || match[0];
                                         let cleanStr = originalStr;
                                         
+                                        if (regObj.tipo === 'num') {
+                                            if (cleanStr.length === 8 && (cleanStr.startsWith('20') || cleanStr.startsWith('19'))) continue;
+                                        }
+
                                         if (regObj.tipo === 'nome') {
-                                            if (/[a-zà-ÿ]/.test(originalStr)) continue;
                                             if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) continue;
                                             if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue;
                                             
@@ -517,31 +505,12 @@
                                             if(bbox.x0 === 9999) bbox = line.bbox;
                                             
                                             let isAss = (regObj.tipo === 'ass');
-                                            let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
-                                            let w_val, h_val, finalX, finalY;
-
-                                            if (isAss) {
-                                                if (isGovBr) {
-                                                    w_val = 260; h_val = 90;
-                                                    finalX = bbox.x1 - 250;
-                                                    finalY = bbox.y0 - 45;
-                                                } else {
-                                                    w_val = Math.max(bbox.x1 - bbox.x0 + 150, 200);
-                                                    h_val = Math.max(bbox.y1 - bbox.y0 + 30, 40);
-                                                    finalX = bbox.x0 - 10;
-                                                    finalY = bbox.y0 - 15;
-                                                }
-                                            } else {
-                                                w_val = (bbox.x1 - bbox.x0) + 10;
-                                                h_val = (bbox.y1 - bbox.y0) + 8;
-                                                finalX = bbox.x0 - 5;
-                                                finalY = bbox.y0 - 4;
-                                            }
-
-                                            if (finalX < 0) finalX = 0;
-                                            if (finalY < 0) finalY = 0;
+                                            const w = isAss ? (bbox.x1 - bbox.x0) + 160 : (bbox.x1 - bbox.x0) + 10;
+                                            const h = isAss ? (bbox.y1 - bbox.y0) + 50 : (bbox.y1 - bbox.y0) + 8;
+                                            let finalY = isAss ? bbox.y0 - 25 : bbox.y0 - 4;
+                                            let finalX = isAss ? bbox.x0 - 80 : bbox.x0 - 5;
                                             
-                                            injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${finalY}px`, `${finalX}px`);
+                                            injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${finalY}px`, `${finalX}px`);
 
                                             for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                         }
