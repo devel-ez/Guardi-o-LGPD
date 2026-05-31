@@ -1,6 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
+    // 1. Estilos (Com Painel da IA)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -29,6 +30,7 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
 
+    // 2. Painel Lateral UI
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -104,6 +106,7 @@
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
             if (tipo === 'suspect') cor = '#c084fc';
+            if (tipo === 'skip') cor = '#94a3b8';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
@@ -132,10 +135,10 @@
 
     async function carregarDependencias() {
         try {
-            await loadScript('[https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js](https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js)');
-            await loadScript('[https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js](https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js)');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '[https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js](https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js)';
-            await loadScript('[https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js](https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js)');
+            await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
         } catch (err) {
             logDebug("Erro ao carregar bibliotecas.", 'error');
         }
@@ -259,7 +262,7 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // Chamada à API do Gemini
+    // --- O CÉREBRO DA IA GEMINI (COM SISTEMA DE FALLBACK) ---
     async function getNamesFromGemini(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
 Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
@@ -275,8 +278,9 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
 Texto Extraído:
 ${textoDaPagina.substring(0, 15000)}`;
 
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        // Função interna de fetch para facilitar o fallback
+        const callGoogleApi = async (modelName) => {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -284,14 +288,26 @@ ${textoDaPagina.substring(0, 15000)}`;
                     generationConfig: { response_mime_type: "application/json" }
                 })
             });
-            const data = await response.json();
+            return await response.json();
+        };
+
+        try {
+            // Tenta primeiro o modelo padrão (que tem modo JSON garantido)
+            let data = await callGoogleApi('gemini-1.5-flash-latest');
+            
+            // Se o Google reclamar que não encontrou o modelo, tentamos a versão PRO
+            if (data.error && data.error.code === 404) {
+                logDebug(`[Aviso API] Modelo flash-latest não encontrado. Tentando pro-latest...`, 'skip');
+                data = await callGoogleApi('gemini-1.5-pro-latest');
+            }
+
             if (data.error) {
-                logDebug(`[Erro API] ${data.error.message}`, 'error');
+                logDebug(`[Erro API Google] ${data.error.message}`, 'error');
                 return [];
             }
+
             if (data.candidates && data.candidates[0].content.parts[0].text) {
                 let responseText = data.candidates[0].content.parts[0].text.trim();
-                // Limpeza de possíveis artefatos Markdown do retorno do Gemini
                 if(responseText.startsWith("```json")) responseText = responseText.replace(/```json/g, '').replace(/```/g, '');
                 return JSON.parse(responseText);
             }
@@ -301,7 +317,7 @@ ${textoDaPagina.substring(0, 15000)}`;
         return [];
     }
 
-    // Regras de Busca Matemática Pura
+    // Regras de Busca Matemática Pura (Protegidas no Frontend)
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
@@ -311,7 +327,7 @@ ${textoDaPagina.substring(0, 15000)}`;
     document.getElementById('btn-auto-scan').onclick = async function() {
         const apiKey = document.getElementById('gemini-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Você precisa colar sua Chave API do Gemini no campo indicado para usar a Inteligência Artificial.");
+            alert("Atenção! Cole a sua Chave da API do Google Gemini no campo roxo acima para a IA funcionar.");
             return;
         }
         // Salva a chave no navegador local do usuário para as próximas vezes
@@ -334,7 +350,7 @@ ${textoDaPagina.substring(0, 15000)}`;
             logDebug("\n[INÍCIO] IA Gemini Acionada.");
 
             for (let i = 1; i <= totalPages; i++) {
-                scanStatus.innerText = `IA lendo Pág. ${i}/${totalPages}...`;
+                scanStatus.innerText = `Processando Pág. ${i}/${totalPages}...`;
                 scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
                 
                 const page = await globalPdfJsDoc.getPage(i);
@@ -347,6 +363,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                     let textoIntegralDaPagina = "";
                     const linhasObj = [];
 
+                    // Organização Estrutural do PDF
                     if (validItems.length > 10) {
                         let linhaAtual = null;
 
@@ -365,7 +382,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                             if (linhaAtual.tokens.length > 0) {
                                 const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
                                 const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
-                                if (distX > 45) sep = ' | ';
+                                if (distX > 35) sep = ' | ';
                                 else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
                             }
                             linhaAtual.tokens.push(item);
@@ -378,8 +395,9 @@ ${textoDaPagina.substring(0, 15000)}`;
 
                         textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
                     } else {
-                        scanStatus.innerText = `Extraindo imagem Pág. ${i}...`;
-                        if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+                        // Se for PDF Escaneado (Imagem)
+                        scanStatus.innerText = `Lendo Imagem Pág. ${i}...`;
+                        if (typeof Tesseract === 'undefined') await loadScript('[https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js](https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js)');
                         const canvas = pageContainer.querySelector('canvas');
                         const { data } = await Tesseract.recognize(canvas, 'por');
                         textoIntegralDaPagina = data.text;
@@ -391,7 +409,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                         });
                     }
 
-                    // AUTO-TARJA MATEMÁTICA
+                    // --- ETAPA 1: ALVOS MATEMÁTICOS (Auto-Tarja) ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -416,30 +434,35 @@ ${textoDaPagina.substring(0, 15000)}`;
                                     let endIndex = matchIdx + cleanStr.length - 1;
                                     while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
                                     while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
+                                    
                                     if (startIndex <= endIndex) {
-                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1, scale: viewport.scale};
+                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                        let h_font = 10;
+
                                         if (linha.charMap[startIndex].item.transform) {
                                             const first = linha.charMap[startIndex].item;
                                             const last = linha.charMap[endIndex].item;
                                             const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                             const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                             bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0; 
-                                            bbox.fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            h_font = fs * viewport.scale;
                                         } else {
                                             const item = linha.charMap[startIndex].item;
                                             bbox.x0 = item.bbox.x0; bbox.y0 = item.bbox.y1; bbox.x1 = item.bbox.x1; bbox.y1 = item.bbox.y1;
-                                            bbox.fs = (item.bbox.y1 - item.bbox.y0) / viewport.scale;
+                                            h_font = item.bbox.y1 - item.bbox.y0;
                                         }
 
+                                        // EXPLOSÃO DE ASSINATURA GOV.BR/TOKEN
                                         let isAss = (regObj.tipo === 'ass');
                                         let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
                                         let w_val, h_val, finalX, finalY;
 
                                         if (isAss) {
                                             if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
-                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max((bbox.fs * viewport.scale) + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
+                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
                                         } else {
-                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max((bbox.fs * viewport.scale) + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
+                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
 
                                         injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
@@ -450,16 +473,18 @@ ${textoDaPagina.substring(0, 15000)}`;
                         });
                     });
 
-                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL LÊ OS NOMES ---
-                    scanStatus.innerText = `Enviando Pág. ${i} para a IA Gemini...`;
+                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
+                    scanStatus.innerText = `Consultando IA na Pág. ${i}...`;
                     const nomesIA = await getNamesFromGemini(textoIntegralDaPagina, apiKey);
                     
-                    if (nomesIA && nomesIA.length > 0) {
+                    if (nomesIA && Array.isArray(nomesIA)) {
                         nomesIA.forEach(nome => {
                             let cleanNome = nome.toUpperCase().trim();
+                            
                             if(cleanNome.split(/\s+/).length > 1) {
-                                logDebug(`[IA Gemini] Encontrou pessoa: ${cleanNome}`, 'suspect');
+                                logDebug(`[IA] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
+                                // Varre as coordenadas para encontrar onde o nome sugerido pela IA está desenhado na tela
                                 linhasObj.forEach(linha => {
                                     let idx = removeAcentos(linha.texto).toUpperCase().indexOf(removeAcentos(cleanNome));
                                     if(idx !== -1) {
@@ -499,6 +524,7 @@ ${textoDaPagina.substring(0, 15000)}`;
             
             scanContainer.style.display = "none";
             
+            // --- MONTAGEM DO PAINEL DE REVISÃO HUMANA ---
             const painelRevisao = document.getElementById('painel-revisao-nomes');
             const divLista = document.getElementById('lista-nomes-suspeitos');
             divLista.innerHTML = ''; 
@@ -512,7 +538,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.value = nome;
-                    checkbox.checked = true; 
+                    checkbox.checked = true; // Por padrão, confiamos na IA e marcamos
                     
                     label.appendChild(checkbox);
                     label.appendChild(document.createTextNode(nome));
@@ -520,10 +546,11 @@ ${textoDaPagina.substring(0, 15000)}`;
                 });
                 
                 painelRevisao.style.display = 'flex';
-                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} entidades únicas prontas para revisão.`);
-                alert(`Mapeamento Concluído!\n\nDocs/Assinaturas foram tarjados automaticamente.\nForam encontrados ${mapNomesSuspeitos.size} possíveis Nomes Próprios.\n\nRevise a lista no painel, desmarque o que NÃO é pessoa, e clique em "Aplicar Tarjas Selecionadas".`);
+                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} pessoas para revisão.`);
+                alert(`Leitura IA Concluída!\n\nDocumentos e Assinaturas foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\n\nRevise a lista no painel direito, desmarque quem NÃO deve ser tarjado e clique em "Aplicar Tarjas".`);
             } else {
-                alert("Mapeamento concluído. Nenhum nome encontrado para revisão.");
+                alert("Mapeamento concluído. A IA não localizou Nomes Próprios na página.");
+                btn.style.display = "block";
             }
 
         } catch (e) { 
@@ -533,6 +560,7 @@ ${textoDaPagina.substring(0, 15000)}`;
         }
     };
 
+    // Aplicador do Veredito Humano
     document.getElementById('btn-aplicar-nomes').onclick = function() {
         const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
         let aplicadas = 0;
@@ -549,9 +577,9 @@ ${textoDaPagina.substring(0, 15000)}`;
             }
         });
         
-        logDebug(`[SUCESSO] O usuário autorizou a aplicação de ${aplicadas} tarjas de nomes confirmados.`);
-        
+        logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas na revisão humana.`);
         document.getElementById('painel-revisao-nomes').style.display = 'none';
+        document.getElementById('btn-auto-scan').style.display = 'block';
         alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
     };
 
@@ -566,47 +594,26 @@ ${textoDaPagina.substring(0, 15000)}`;
 
         try {
             const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
-            
             const form = pdfDoc.getForm();
-            try {
-                form.flatten();
-                logDebug("[Segurança] Assinaturas digitais e formulários achatados.");
-            } catch(err) {
-                logDebug("[Aviso] Não foi possível achatar formulários, ou o PDF não possui campos flutuantes.");
-            }
+            try { form.flatten(); logDebug("[Segurança] Assinaturas achatadas."); } catch(err) {}
 
             const paginasPdfLib = pdfDoc.getPages();
-            
             tarjas.forEach(tarja => {
                 const container = tarja.parentElement;
                 const pageNum = parseInt(container.getAttribute('data-page-number'));
                 const paginaAlvo = paginasPdfLib[pageNum - 1];
                 const { width: pdfWidth } = paginaAlvo.getSize();
-                
                 const scaleX = pdfWidth / container.offsetWidth;
                 const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
-                
-                paginaAlvo.drawRectangle({ 
-                    x: parseFloat(tarja.style.left) * scaleX, 
-                    y: yPdf, 
-                    width: tarja.offsetWidth * scaleX, 
-                    height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), 
-                    color: PDFLib.rgb(0, 0, 0) 
-                });
+                paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
             });
-
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: "application/pdf" });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = "documento_tratado_lgpd.pdf";
             link.click();
-            
-            logDebug("[Sucesso] PDF salvo e baixado para o seu computador.");
-        } catch(e) { 
-            logDebug(`[Erro Fatal] Falha ao salvar PDF: ${e.message}`, 'error');
-            alert("Erro ao salvar PDF. Verifique o console de rastreio."); 
-        } finally {
+        } catch(e) { alert("Erro ao salvar PDF."); } finally {
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
         }
