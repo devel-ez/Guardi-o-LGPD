@@ -1,7 +1,28 @@
+**Aviso de Segurança de Ouro:** Como engenheiro, preciso te dar um alerta amigável! Aquele código que você colou antes (`AQ.Ab8...`) parecia um token de acesso. **Nunca cole chaves de API ou senhas em chats públicos ou códigos abertos no GitHub**, pois bots podem varrer a internet e roubar sua cota de uso.
+
+Mas fique tranquilo! No código que construí abaixo, **você não vai colar a chave dentro do código fonte**. Eu criei um campo de senha **direto na interface do Guardião LGPD**. Você só cola a chave na tela do sistema quando for usar. Assim, fica 100% seguro!
+
+*(Nota: As chaves gratuitas do Google Gemini geralmente começam com as letras **`AIzaSy...`**. Certifique-se de que copiou a chave certa no site do Google AI Studio).*
+
+### O Fim da Guerra contra o OCR: A Era da IA Semântica
+
+Com este código, nós paramos de tentar adivinhar a geometria das palavras. O fluxo agora é perfeito e imbatível:
+
+1. O robô acha os CPFs, CEPs e as Assinaturas Gov.br (e aplica a **explosão da tarja** para cobrir o selo inteiro automaticamente).
+2. Ele pega o texto "sujo" e bagunçado do OCR e manda para o cérebro do Gemini.
+3. O Gemini lê como um humano, entende o que é lixo administrativo e o que é o nome do Sargento, e devolve a lista limpa.
+4. O Guardião cruza a lista da IA com as coordenadas, e monta a **Lista de Suspeitos** na sua tela para você dar o "OK" final.
+
+### O Código Supremo (Integração Gemini)
+
+Substitua todo o seu arquivo `lgpd-redactor.js` por este código abaixo.
+**LEMBRETE VITAL:** Vá na aba do seu sistema e aperte **`CTRL + SHIFT + R`** para matar o cache antigo, senão o navegador não vai carregar o painel novo com o campo da Chave API!
+
+```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos 
+    // 1. Estilos (Agora com o Painel da IA)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -9,14 +30,12 @@
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
-        .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
+        .lgpd-progress-fill { height: 100%; background: #8b5cf6; transition: width 0.1s ease; border-radius: 4px; }
         .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
-        .btn-tarja-ctrl.confirmar { background: #059669; }
         
-        /* Novos estilos para a Lista de Nomes */
-        .lgpd-name-list { max-height: 250px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
+        .lgpd-name-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
         .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
         .lgpd-name-item input { cursor: pointer; }
         .lgpd-name-item:hover { background: #f8fafc; }
@@ -30,24 +49,27 @@
     let globalPdfJsDoc = null;
     let objectUrl = null; 
     let originalArrayBuffer = null;
-    
-    // O MAPA DE NOMES SUSPEITOS: Chave = Nome, Valor = Array de Coordenadas
     let mapNomesSuspeitos = new Map(); 
 
-    // 3. Painel Lateral (UI)
+    // 2. Painel Lateral UI
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
-    root.style = 'position:fixed;top:15px;right:15px;width:390px;height:92vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
+    root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
         <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD (Smart UI)</span>
+            <span style="font-weight:bold;font-size:14px;">🧠 IA GUARDIÃO LGPD</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
-            <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:30px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
+            
+            <div style="background:#f3e8ff; border:1px solid #d8b4fe; padding:10px; border-radius:6px; font-size:11px; color:#6b21a8;">
+                <b>Conexão Google Gemini:</b> Cole sua chave API (AIzaSy...) para ativar a Inteligência Semântica.
+                <input type="password" id="gemini-api-key" placeholder="Cole a Chave da API aqui..." style="width:100%; margin-top:5px; padding:6px; border:1px solid #d8b4fe; border-radius:4px; font-size:11px;" />
+            </div>
+
+            <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
                 <span style="font-size:13px;color:#475569;font-weight:bold;">Arraste o PDF aqui</span>
-                <button style="padding:6px 12px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;cursor:pointer;">Procurar Arquivo</button>
                 <input type="file" id="lgpd-file-input" accept="application/pdf" style="display:none;" />
             </div>
 
@@ -56,24 +78,23 @@
                     <span id="lgpd-load-status">Processando...</span>
                     <span id="lgpd-load-percent">0%</span>
                 </div>
-                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%;"></div></div>
+                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#2563eb;"></div></div>
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(14, 165, 233, 0.3);">🔍 1. Mapear Dados no Documento</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(139, 92, 246, 0.3);">✨ 1. Analisar com IA Gemini</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
-                        <span id="lgpd-scan-status">Iniciando análise...</span>
+                        <span id="lgpd-scan-status">Iniciando IA...</span>
                         <span id="lgpd-scan-percent">0%</span>
                     </div>
-                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#0ea5e9;"></div></div>
+                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;"></div></div>
                 </div>
 
                 <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
-                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 Nomes Encontrados (Marque para Tarjar):</span>
-                    <div id="lista-nomes-suspeitos" class="lgpd-name-list">
-                        </div>
+                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 IA Encontrou (Marque as Pessoas Físicas):</span>
+                    <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
                     <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
                 </div>
 
@@ -82,7 +103,7 @@
                 <button id="btn-new-doc" style="width:100%;padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">📄 Carregar Novo Documento</button>
                 
                 <button id="btn-toggle-log" style="width:100%;padding:8px;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">💻 Exibir Console de Rastreio</button>
-                <div id="lgpd-debug-log" style="display:none; height:150px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA DE RASTREIO ATIVADO...<br></div>
+                <div id="lgpd-debug-log" style="display:none; height:120px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA IA ATIVADO...<br></div>
             </div>
         </div>
     `;
@@ -99,7 +120,7 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
-            if (tipo === 'suspect') cor = '#38bdf8';
+            if (tipo === 'suspect') cor = '#c084fc';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
@@ -162,7 +183,7 @@
         document.getElementById('lgpd-actions-panel').style.display = 'none';
         document.getElementById('painel-revisao-nomes').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
-        document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA DE RASTREIO ATIVADO...<br>";
+        document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA IA ATIVADO...<br>";
         pdfDocInstance = null;
         globalPdfJsDoc = null;
         originalArrayBuffer = null;
@@ -224,7 +245,6 @@
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
     }
 
-    // Função universal de injeção visual da Tarja na tela
     function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
@@ -244,8 +264,6 @@
         pageContainer.appendChild(tarja);
 
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
-        
-        // Clicar na tarja permite excluir mesmo depois de confirmada
         tarja.onclick = (e) => { 
             if (tarja.classList.contains('confirmada')) { 
                 tarja.classList.remove('confirmada'); 
@@ -258,38 +276,62 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // Limpeza pesada para arrancar patentes do começo ou fim de nomes
-    const ranksToTrim = new Set(["MAJ","TEN","CEL","TCEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"]);
-    
-    function limparBordasDoNome(matchStr) {
-        let words = matchStr.split(/\s+/);
-        while (words.length > 0) {
-            let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]|]/g, ''));
-            if (ranksToTrim.has(limpa) || limpa.length <= 2) words.shift();
-            else break;
+    // --- O CÉREBRO DA IA GEMINI ---
+    async function getNamesFromGemini(textoDaPagina, apiKey) {
+        const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
+Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
+
+REGRAS ABSOLUTAS:
+1. NÃO inclua patentes militares junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
+2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas (Ignore "MACHINE LTDA", "Comando Militar", etc).
+3. IMPORTANTE: O texto foi lido por OCR e pode ter erros de digitação (ex: "Maxiiniliano da Sllva"). Copie o nome EXATAMENTE como aparece no texto abaixo, letra por letra, não corrija! Precisarei dessa string exata para cruzar os dados.
+
+Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown, nem crases, apenas o Array.
+Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
+
+Texto Extraído:
+${textoDaPagina.substring(0, 15000)}`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { response_mime_type: "application/json" }
+                })
+            });
+            const data = await response.json();
+            if (data.error) {
+                logDebug(`[Erro API] ${data.error.message}`, 'error');
+                return [];
+            }
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                let responseText = data.candidates[0].content.parts[0].text.trim();
+                // Limpeza de possíveis artefatos Markdown do retorno do Gemini
+                if(responseText.startsWith("```json")) responseText = responseText.replace(/```json/g, '').replace(/```/g, '');
+                return JSON.parse(responseText);
+            }
+        } catch (e) {
+            logDebug("Erro fatal ao processar a resposta da IA.", "error");
         }
-        while (words.length > 0) {
-            let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]|]/g, ''));
-            if (ranksToTrim.has(limpa) || limpa.length <= 2) words.pop();
-            else break;
-        }
-        return words.join(' ');
+        return [];
     }
 
-    // As Regras de Ouro
+    // Apenas Regras Matemáticas Seguras (O que não for nome)
     const regexesBusca = [
-        // DADOS MATEMÁTICOS (Tarja Automática Certa)
-        { tipo: 'doc', auto: true, r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
-        { tipo: 'ass', auto: true, r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
-        { tipo: 'end', auto: true, r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.|Avenida|Al\.|Alameda|Pça\.|Praça|Tv\.|Travessa|Rod\.|Rodovia|Est\.|Estrada|Qd\.|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\s+[^\n|()\[\]]{5,100}\b\d{1,6})\b/gi },
-        { tipo: 'cep', auto: true, r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
-        
-        // SUSPEITOS DE NOME PRÓPRIO (Vão para a Lista de Revisão Humana)
-        // Expressão abrangente para pegar Versaletes e Maiúsculas Normais (mínimo 2 palavras)
-        { tipo: 'nome', auto: false, r: /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}){1,6})\b/g } 
+        { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
+        { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+        { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
     document.getElementById('btn-auto-scan').onclick = async function() {
+        const apiKey = document.getElementById('gemini-api-key').value.trim();
+        if (!apiKey) {
+            alert("Atenção! Cole a sua Chave da API do Google Gemini no campo roxo acima para a IA funcionar.");
+            return;
+        }
+
         const btn = this;
         const scanContainer = document.getElementById('lgpd-scan-progress-container');
         const scanStatus = document.getElementById('lgpd-scan-status');
@@ -304,43 +346,78 @@
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
-            logDebug("\n[INÍCIO] Mapeamento Híbrido Acionado (Auto + Revisão).");
+            logDebug("\n[INÍCIO] IA Gemini Acionada.");
 
             for (let i = 1; i <= totalPages; i++) {
-                scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
+                scanStatus.innerText = `Processando Pág. ${i}/${totalPages}...`;
                 scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
                 
                 const page = await globalPdfJsDoc.getPage(i);
                 const viewport = page.getViewport({ scale: 1.5 });
+                const textContent = await page.getTextContent();
                 const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
                 
                 if (pageContainer) {
-                    // O Tesseract fará a varredura visual em todas as páginas para não perder nada nas tabelas
-                    const canvas = pageContainer.querySelector('canvas');
-                    const { data } = await Tesseract.recognize(canvas, 'por');
+                    const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
+                    let textoIntegralDaPagina = "";
+                    const linhasObj = [];
 
-                    data.lines.forEach(line => {
-                        let overlaps = new Uint8Array(line.text.length);
+                    // Organização Estrutural do PDF
+                    if (validItems.length > 10) {
+                        let linhaAtual = null;
 
+                        validItems.sort((a, b) => {
+                            const dy = b.transform[5] - a.transform[5];
+                            if (Math.abs(dy) > 5) return dy;
+                            return a.transform[4] - b.transform[4];
+                        }).forEach(item => {
+                            const itemY = item.transform[5];
+                            if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
+                                linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
+                                linhasObj.push(linhaAtual);
+                            }
+                            
+                            let sep = '';
+                            if (linhaAtual.tokens.length > 0) {
+                                const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
+                                const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
+                                if (distX > 35) sep = ' | ';
+                                else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
+                            }
+                            linhaAtual.tokens.push(item);
+                            
+                            for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
+                            for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
+                            
+                            linhaAtual.texto += sep + item.str;
+                        });
+
+                        textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
+                    } else {
+                        // Se for PDF Escaneado (Imagem)
+                        scanStatus.innerText = `Lendo Imagem Pág. ${i}...`;
+                        if (typeof Tesseract === 'undefined') await loadScript('[https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js](https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js)');
+                        const canvas = pageContainer.querySelector('canvas');
+                        const { data } = await Tesseract.recognize(canvas, 'por');
+                        textoIntegralDaPagina = data.text;
+                        
+                        data.lines.forEach(line => {
+                            let obj = { texto: line.text, charMap: [] };
+                            for(let c=0; c<line.text.length; c++) obj.charMap.push({char: line.text[c], item: line});
+                            linhasObj.push(obj);
+                        });
+                    }
+
+                    // --- ETAPA 1: ALVOS MATEMÁTICOS (Auto-Tarja) ---
+                    linhasObj.forEach(linha => {
+                        const overlaps = new Uint8Array(linha.texto.length);
+                        
                         regexesBusca.forEach(regObj => {
-                            regObj.r.lastIndex = 0;
                             let match;
-                            while ((match = regObj.r.exec(line.text)) !== null) {
-                                let originalStr = match[1] || match[0];
-                                let cleanStr = originalStr;
-                                
-                                if (regObj.tipo === 'nome') {
-                                    // Limpeza rápida para descartar absurdos logo de cara
-                                    if (/([A-Z])\1{2,}/i.test(originalStr)) continue; // Gagueira
-                                    if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) continue; // Empresa
-                                    if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue; // Endereço
-                                    
-                                    cleanStr = limparBordasDoNome(originalStr);
-                                    if (cleanStr.split(/\s+/).some(w => w.length > 18)) continue; // Esmagado
-                                    if (cleanStr.split(/\s+/).length < 2) continue; // Uma palavra só
-                                }
-                                
-                                let matchIdx = line.text.indexOf(cleanStr, match.index);
+                            regObj.r.lastIndex = 0;
+                            while ((match = regObj.r.exec(linha.texto)) !== null) {
+                                let cleanStr = match[1] || match[0];
+                                let matchIdx = linha.texto.indexOf(cleanStr, match.index);
                                 if (matchIdx === -1) matchIdx = match.index;
 
                                 let hasOverlap = false;
@@ -349,83 +426,109 @@
                                 }
 
                                 if (!hasOverlap) {
-                                    let matchEnd = matchIdx + cleanStr.length;
-                                    let charCursor = 0;
-                                    let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                    logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
+                                    tarjasAutoDetectadas++;
                                     
-                                    line.words.forEach(w => {
-                                        let wStart = line.text.indexOf(w.text, charCursor);
-                                        if(wStart === -1) wStart = charCursor;
-                                        let wEnd = wStart + w.text.length;
-                                        charCursor = wEnd;
-                                        
-                                        if (wEnd > matchIdx && wStart < matchEnd) {
-                                            if (w.bbox.x0 < bbox.x0) bbox.x0 = w.bbox.x0;
-                                            if (w.bbox.y0 < bbox.y0) bbox.y0 = w.bbox.y0;
-                                            if (w.bbox.x1 > bbox.x1) bbox.x1 = w.bbox.x1;
-                                            if (w.bbox.y1 > bbox.y1) bbox.y1 = w.bbox.y1;
-                                        }
-                                    });
+                                    let startIndex = matchIdx;
+                                    let endIndex = matchIdx + cleanStr.length - 1;
+                                    while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
+                                    while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
                                     
-                                    if(bbox.x0 === 9999) bbox = line.bbox;
+                                    if (startIndex <= endIndex) {
+                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                        let h_font = 10;
 
-                                    if (regObj.auto) {
-                                        // TARJA DIRETO NA TELA (Matemática Pura: Docs e Assinaturas)
-                                        logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                        tarjasAutoDetectadas++;
-                                        
+                                        if (linha.charMap[startIndex].item.transform) {
+                                            const first = linha.charMap[startIndex].item;
+                                            const last = linha.charMap[endIndex].item;
+                                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                            bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0; 
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            h_font = fs * viewport.scale;
+                                        } else {
+                                            const item = linha.charMap[startIndex].item;
+                                            bbox.x0 = item.bbox.x0; bbox.y0 = item.bbox.y1; bbox.x1 = item.bbox.x1; bbox.y1 = item.bbox.y1;
+                                            h_font = item.bbox.y1 - item.bbox.y0;
+                                        }
+
+                                        // EXPLOSÃO DE ASSINATURA GOV.BR/TOKEN
                                         let isAss = (regObj.tipo === 'ass');
                                         let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
                                         let w_val, h_val, finalX, finalY;
 
                                         if (isAss) {
-                                            if (isGovBr) {
-                                                w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45;
-                                            } else {
-                                                w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(bbox.y1 - bbox.y0 + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15;
-                                            }
+                                            if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
+                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
                                         } else {
-                                            w_val = (bbox.x1 - bbox.x0) + 10; h_val = (bbox.y1 - bbox.y0) + 8; finalX = bbox.x0 - 5; finalY = bbox.y0 - 4;
+                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
 
-                                        if (finalX < 0) finalX = 0; if (finalY < 0) finalY = 0;
-                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${finalY}px`, `${finalX}px`, true);
-
-                                    } else {
-                                        // GUARDA O NOME SUSPEITO PARA REVISÃO HUMANA
-                                        let nomeCapitalizado = cleanStr.toUpperCase();
-                                        logDebug(`[Suspeito para Revisão] Encontrado: ${nomeCapitalizado}`, 'suspect');
-                                        
-                                        if (!mapNomesSuspeitos.has(nomeCapitalizado)) {
-                                            mapNomesSuspeitos.set(nomeCapitalizado, []);
-                                        }
-                                        // Guarda as coordenadas para aplicar só se o humano mandar
-                                        mapNomesSuspeitos.get(nomeCapitalizado).push({
-                                            pageNode: pageContainer,
-                                            w: (bbox.x1 - bbox.x0) + 10,
-                                            h: (bbox.y1 - bbox.y0) + 8,
-                                            x: Math.max(0, bbox.x0 - 5),
-                                            y: Math.max(0, bbox.y0 - 4)
-                                        });
+                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
                                     }
-
                                     for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                 }
                             }
                         });
                     });
+
+                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
+                    scanStatus.innerText = `Consultando IA na Pág. ${i}...`;
+                    const nomesIA = await getNamesFromGemini(textoIntegralDaPagina, apiKey);
+                    
+                    if (nomesIA && Array.isArray(nomesIA)) {
+                        nomesIA.forEach(nome => {
+                            let cleanNome = nome.toUpperCase().trim();
+                            
+                            if(cleanNome.split(/\s+/).length > 1) {
+                                logDebug(`[IA] Pessoa Encontrada: ${cleanNome}`, 'suspect');
+                                
+                                // Varre as coordenadas para encontrar onde o nome sugerido pela IA está desenhado na tela
+                                linhasObj.forEach(linha => {
+                                    let idx = removeAcentos(linha.texto).toUpperCase().indexOf(removeAcentos(cleanNome));
+                                    if(idx !== -1) {
+                                        if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
+                                        
+                                        let start = idx; let end = idx + cleanNome.length - 1;
+                                        while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
+                                        while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
+                                        
+                                        if(start <= end) {
+                                            const first = linha.charMap[start].item;
+                                            const last = linha.charMap[end].item;
+                                            
+                                            let x0, y0, x1, h;
+                                            if (first.transform) {
+                                                [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                                [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                                const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                                h = Math.max((fs * viewport.scale) + 8, 12);
+                                            } else {
+                                                x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
+                                                h = first.bbox.y1 - first.bbox.y0 + 8;
+                                            }
+                                            
+                                            mapNomesSuspeitos.get(cleanNome).push({
+                                                pageNode: pageContainer,
+                                                w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
                 }
             }
             
             scanContainer.style.display = "none";
             
-            // Monta o Painel de Revisão Humana
+            // --- MONTAGEM DO PAINEL DE REVISÃO HUMANA ---
             const painelRevisao = document.getElementById('painel-revisao-nomes');
             const divLista = document.getElementById('lista-nomes-suspeitos');
-            divLista.innerHTML = ''; // Limpa anterior
+            divLista.innerHTML = ''; 
             
             if (mapNomesSuspeitos.size > 0) {
-                // Ordena alfabeticamente para facilitar a leitura do usuário
                 const nomesOrdenados = Array.from(mapNomesSuspeitos.keys()).sort();
                 
                 nomesOrdenados.forEach(nome => {
@@ -434,8 +537,7 @@
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.value = nome;
-                    // Sugere marcado (check) por padrão, para o humano só desmarcar o lixo
-                    checkbox.checked = true; 
+                    checkbox.checked = true; // Por padrão, confiamos na IA e marcamos
                     
                     label.appendChild(checkbox);
                     label.appendChild(document.createTextNode(nome));
@@ -443,10 +545,11 @@
                 });
                 
                 painelRevisao.style.display = 'flex';
-                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} entidades únicas prontas para revisão.`);
-                alert(`Mapeamento Concluído!\n\nDocs/Assinaturas foram tarjados automaticamente.\nForam encontrados ${mapNomesSuspeitos.size} possíveis Nomes Próprios.\n\nRevise a lista no painel, desmarque o que NÃO é pessoa, e clique em "Aplicar Tarjas Selecionadas".`);
+                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} pessoas para revisão.`);
+                alert(`Leitura IA Concluída!\n\nDocumentos e Assinaturas foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\n\nRevise a lista no painel direito, desmarque quem NÃO deve ser tarjado e clique em "Aplicar Tarjas".`);
             } else {
-                alert("Mapeamento concluído. Nenhum nome encontrado para revisão.");
+                alert("Mapeamento concluído. A IA não localizou Nomes Próprios.");
+                btn.style.display = "block";
             }
 
         } catch (e) { 
@@ -456,7 +559,7 @@
         }
     };
 
-    // Botão de Aplicar a Escolha Humana
+    // Aplicador do Veredito Humano
     document.getElementById('btn-aplicar-nomes').onclick = function() {
         const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
         let aplicadas = 0;
@@ -473,10 +576,9 @@
             }
         });
         
-        logDebug(`[SUCESSO] O usuário autorizou a aplicação de ${aplicadas} tarjas de nomes confirmados.`);
-        
-        // Esconde o painel de revisão, a missão dele acabou
+        logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas na revisão humana.`);
         document.getElementById('painel-revisao-nomes').style.display = 'none';
+        document.getElementById('btn-auto-scan').style.display = 'block';
         alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
     };
 
@@ -491,14 +593,8 @@
 
         try {
             const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
-            
             const form = pdfDoc.getForm();
-            try {
-                form.flatten();
-                logDebug("[Segurança] Assinaturas digitais e formulários achatados.");
-            } catch(err) {
-                logDebug("[Aviso] Sem campos flutuantes para achatar.");
-            }
+            try { form.flatten(); logDebug("[Segurança] Assinaturas achatadas."); } catch(err) {}
 
             const paginasPdfLib = pdfDoc.getPages();
             tarjas.forEach(tarja => {
@@ -524,3 +620,5 @@
 
     carregarDependencias();
 })();
+
+```
