@@ -1,24 +1,3 @@
-**Aviso de Segurança de Ouro:** Como engenheiro, preciso te dar um alerta amigável! Aquele código que você colou antes (`AQ.Ab8...`) parecia um token de acesso. **Nunca cole chaves de API ou senhas em chats públicos ou códigos abertos no GitHub**, pois bots podem varrer a internet e roubar sua cota de uso.
-
-Mas fique tranquilo! No código que construí abaixo, **você não vai colar a chave dentro do código fonte**. Eu criei um campo de senha **direto na interface do Guardião LGPD**. Você só cola a chave na tela do sistema quando for usar. Assim, fica 100% seguro!
-
-*(Nota: As chaves gratuitas do Google Gemini geralmente começam com as letras **`AIzaSy...`**. Certifique-se de que copiou a chave certa no site do Google AI Studio).*
-
-### O Fim da Guerra contra o OCR: A Era da IA Semântica
-
-Com este código, nós paramos de tentar adivinhar a geometria das palavras. O fluxo agora é perfeito e imbatível:
-
-1. O robô acha os CPFs, CEPs e as Assinaturas Gov.br (e aplica a **explosão da tarja** para cobrir o selo inteiro automaticamente).
-2. Ele pega o texto "sujo" e bagunçado do OCR e manda para o cérebro do Gemini.
-3. O Gemini lê como um humano, entende o que é lixo administrativo e o que é o nome do Sargento, e devolve a lista limpa.
-4. O Guardião cruza a lista da IA com as coordenadas, e monta a **Lista de Suspeitos** na sua tela para você dar o "OK" final.
-
-### O Código Supremo (Integração Gemini)
-
-Substitua todo o seu arquivo `lgpd-redactor.js` por este código abaixo.
-**LEMBRETE VITAL:** Vá na aba do seu sistema e aperte **`CTRL + SHIFT + R`** para matar o cache antigo, senão o navegador não vai carregar o painel novo com o campo da Chave API!
-
-```javascript
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
@@ -620,5 +599,3 @@ ${textoDaPagina.substring(0, 15000)}`;
 
     carregarDependencias();
 })();
-
-```
