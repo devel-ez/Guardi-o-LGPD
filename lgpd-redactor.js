@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Com Painel da IA)
+    // 1. Estilos 
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -133,14 +133,16 @@
         if (loader) loader.remove();
     };
 
+    // FUNÇÃO ATUALIZADA: MUDANÇA PARA O CDNJS (Cloudflare) PARA EVITAR O ERRO 404 DO UNPKG
     async function carregarDependencias() {
         try {
-            await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
         } catch (err) {
-            logDebug("Erro ao carregar bibliotecas.", 'error');
+            logDebug("Erro fatal ao carregar bibliotecas. Verifique a internet.", 'error');
+            alert("Erro ao carregar as bibliotecas (404). Tente dar um CTRL+F5 na página.");
         }
     }
 
@@ -262,23 +264,23 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- O CÉREBRO DA IA GEMINI (COM SISTEMA DE FALLBACK) ---
+    // --- O CÉREBRO DA IA GEMINI (COM ANTI-TRUNCAMENTO) ---
     async function getNamesFromGemini(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
 Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
 
 REGRAS ABSOLUTAS:
 1. NÃO inclua patentes militares junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
-2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas (Ignore "MACHINE LTDA", "Comando Militar", etc).
-3. IMPORTANTE: O texto foi lido por OCR e pode ter erros de digitação (ex: "Maxiiniliano da Sllva"). Copie o nome EXATAMENTE como aparece no texto abaixo, letra por letra, não corrija! Precisarei dessa string exata para cruzar os dados.
+2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas.
+3. IMPORTANTE: O texto foi lido por OCR e pode ter erros. Copie o nome EXATAMENTE como aparece.
+4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES. NÃO RESUMA! Se houver 50 ou 100 nomes na lista, você DEVE retornar todos eles. 
 
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown, nem crases, apenas o Array.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
 
 Texto Extraído:
-${textoDaPagina.substring(0, 15000)}`;
+${textoDaPagina}`;
 
-        // Função interna de fetch para facilitar o fallback
         const callGoogleApi = async (modelName) => {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
                 method: 'POST',
@@ -292,10 +294,10 @@ ${textoDaPagina.substring(0, 15000)}`;
         };
 
         try {
-            // Tenta primeiro o modelo padrão (que tem modo JSON garantido)
+            // Tenta o modelo flash-latest
             let data = await callGoogleApi('gemini-1.5-flash-latest');
             
-            // Se o Google reclamar que não encontrou o modelo, tentamos a versão PRO
+            // Fallback se a chave estiver configurada para pro-latest
             if (data.error && data.error.code === 404) {
                 logDebug(`[Aviso API] Modelo flash-latest não encontrado. Tentando pro-latest...`, 'skip');
                 data = await callGoogleApi('gemini-1.5-pro-latest');
@@ -317,7 +319,7 @@ ${textoDaPagina.substring(0, 15000)}`;
         return [];
     }
 
-    // Regras de Busca Matemática Pura (Protegidas no Frontend)
+    // Regras Matemáticas para o que a IA não faz (Doc, Cep e Assinatura Gov.br)
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
@@ -330,7 +332,6 @@ ${textoDaPagina.substring(0, 15000)}`;
             alert("Atenção! Cole a sua Chave da API do Google Gemini no campo roxo acima para a IA funcionar.");
             return;
         }
-        // Salva a chave no navegador local do usuário para as próximas vezes
         localStorage.setItem('lgpd_gemini_api_key', apiKey);
 
         const btn = this;
@@ -363,7 +364,6 @@ ${textoDaPagina.substring(0, 15000)}`;
                     let textoIntegralDaPagina = "";
                     const linhasObj = [];
 
-                    // Organização Estrutural do PDF
                     if (validItems.length > 10) {
                         let linhaAtual = null;
 
@@ -395,9 +395,8 @@ ${textoDaPagina.substring(0, 15000)}`;
 
                         textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
                     } else {
-                        // Se for PDF Escaneado (Imagem)
-                        scanStatus.innerText = `Lendo Imagem Pág. ${i}...`;
-                        if (typeof Tesseract === 'undefined') await loadScript('[https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js](https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js)');
+                        scanStatus.innerText = `Extraindo imagem Pág. ${i}...`;
+                        if (typeof Tesseract === 'undefined') await loadScript('[https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js](https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js)');
                         const canvas = pageContainer.querySelector('canvas');
                         const { data } = await Tesseract.recognize(canvas, 'por');
                         textoIntegralDaPagina = data.text;
@@ -409,7 +408,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                         });
                     }
 
-                    // --- ETAPA 1: ALVOS MATEMÁTICOS (Auto-Tarja) ---
+                    // AUTO-TARJA MATEMÁTICA
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -453,7 +452,6 @@ ${textoDaPagina.substring(0, 15000)}`;
                                             h_font = item.bbox.y1 - item.bbox.y0;
                                         }
 
-                                        // EXPLOSÃO DE ASSINATURA GOV.BR/TOKEN
                                         let isAss = (regObj.tipo === 'ass');
                                         let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
                                         let w_val, h_val, finalX, finalY;
@@ -473,7 +471,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                         });
                     });
 
-                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
+                    // ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES
                     scanStatus.innerText = `Consultando IA na Pág. ${i}...`;
                     const nomesIA = await getNamesFromGemini(textoIntegralDaPagina, apiKey);
                     
@@ -484,7 +482,6 @@ ${textoDaPagina.substring(0, 15000)}`;
                             if(cleanNome.split(/\s+/).length > 1) {
                                 logDebug(`[IA] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
-                                // Varre as coordenadas para encontrar onde o nome sugerido pela IA está desenhado na tela
                                 linhasObj.forEach(linha => {
                                     let idx = removeAcentos(linha.texto).toUpperCase().indexOf(removeAcentos(cleanNome));
                                     if(idx !== -1) {
@@ -524,7 +521,7 @@ ${textoDaPagina.substring(0, 15000)}`;
             
             scanContainer.style.display = "none";
             
-            // --- MONTAGEM DO PAINEL DE REVISÃO HUMANA ---
+            // MONTAGEM DO PAINEL DE REVISÃO HUMANA
             const painelRevisao = document.getElementById('painel-revisao-nomes');
             const divLista = document.getElementById('lista-nomes-suspeitos');
             divLista.innerHTML = ''; 
@@ -538,7 +535,7 @@ ${textoDaPagina.substring(0, 15000)}`;
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.value = nome;
-                    checkbox.checked = true; // Por padrão, confiamos na IA e marcamos
+                    checkbox.checked = true; 
                     
                     label.appendChild(checkbox);
                     label.appendChild(document.createTextNode(nome));
@@ -560,7 +557,6 @@ ${textoDaPagina.substring(0, 15000)}`;
         }
     };
 
-    // Aplicador do Veredito Humano
     document.getElementById('btn-aplicar-nomes').onclick = function() {
         const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
         let aplicadas = 0;
