@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos
+    // 1. Estilos 
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -14,28 +14,37 @@
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
-        #lgpd-debug-log::-webkit-scrollbar { width: 6px; }
-        #lgpd-debug-log::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
+        /* Novos estilos para a Lista de Nomes */
+        .lgpd-name-list { max-height: 250px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
+        .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+        .lgpd-name-item input { cursor: pointer; }
+        .lgpd-name-item:hover { background: #f8fafc; }
+        
+        #lgpd-debug-log::-webkit-scrollbar, .lgpd-name-list::-webkit-scrollbar { width: 6px; }
+        #lgpd-debug-log::-webkit-scrollbar-thumb, .lgpd-name-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     `;
     document.head.appendChild(style);
 
-    // 2. VARIÁVEIS GLOBAIS
     let pdfDocInstance = null; 
     let globalPdfJsDoc = null;
     let objectUrl = null; 
     let originalArrayBuffer = null;
+    
+    // O MAPA DE NOMES SUSPEITOS: Chave = Nome, Valor = Array de Coordenadas
+    let mapNomesSuspeitos = new Map(); 
 
     // 3. Painel Lateral (UI)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
-    root.style = 'position:fixed;top:15px;right:15px;width:380px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
+    root.style = 'position:fixed;top:15px;right:15px;width:390px;height:92vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
         <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD</span>
+            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD (Smart UI)</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
-        <div style="padding:20px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:15px;" id="lgpd-content">
+        <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:30px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
                 <span style="font-size:13px;color:#475569;font-weight:bold;">Arraste o PDF aqui</span>
                 <button style="padding:6px 12px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;cursor:pointer;">Procurar Arquivo</button>
@@ -51,23 +60,29 @@
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">🔍 Escanear Documento Inteligente</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(14, 165, 233, 0.3);">🔍 1. Mapear Dados no Documento</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
                         <span id="lgpd-scan-status">Iniciando análise...</span>
                         <span id="lgpd-scan-percent">0%</span>
                     </div>
-                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#059669;"></div></div>
+                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#0ea5e9;"></div></div>
                 </div>
 
-                <button id="btn-confirm-all" style="width:100%;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;display:none;">✅ Confirmar Todas as Sugestões</button>
-                <hr style="border:0;border-top:1px solid #e2e8f0;margin:2px 0;">
-                <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">💾 SALVAR PDF HIGIENIZADO</button>
+                <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
+                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 Nomes Encontrados (Marque para Tarjar):</span>
+                    <div id="lista-nomes-suspeitos" class="lgpd-name-list">
+                        </div>
+                    <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
+                </div>
+
+                <hr style="border:0;border-top:1px solid #e2e8f0;margin:5px 0;">
+                <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);">💾 3. SALVAR PDF SEGURO</button>
                 <button id="btn-new-doc" style="width:100%;padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">📄 Carregar Novo Documento</button>
                 
                 <button id="btn-toggle-log" style="width:100%;padding:8px;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">💻 Exibir Console de Rastreio</button>
-                <div id="lgpd-debug-log" style="display:none; height:180px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA DE RASTREIO ATIVADO...<br></div>
+                <div id="lgpd-debug-log" style="display:none; height:150px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA DE RASTREIO ATIVADO...<br></div>
             </div>
         </div>
     `;
@@ -75,7 +90,7 @@
 
     const workspace = document.createElement('div');
     workspace.id = 'lgpd-canvas-workspace';
-    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 410px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
+    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 420px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
     document.body.appendChild(workspace);
 
     function logDebug(msg, tipo = 'info') {
@@ -84,8 +99,7 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
-            if (tipo === 'skip') cor = '#94a3b8';
-            
+            if (tipo === 'suspect') cor = '#38bdf8';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
@@ -117,8 +131,9 @@
             await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
         } catch (err) {
-            logDebug("Erro fatal ao carregar bibliotecas. Verifique a internet.", 'error');
+            logDebug("Erro ao carregar bibliotecas.", 'error');
         }
     }
 
@@ -145,12 +160,13 @@
         workspace.innerHTML = "";
         workspace.style.display = 'none';
         document.getElementById('lgpd-actions-panel').style.display = 'none';
+        document.getElementById('painel-revisao-nomes').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
-        document.getElementById('btn-confirm-all').style.display = 'none';
         document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA DE RASTREIO ATIVADO...<br>";
         pdfDocInstance = null;
         globalPdfJsDoc = null;
         originalArrayBuffer = null;
+        mapNomesSuspeitos.clear();
         if(objectUrl) URL.revokeObjectURL(objectUrl);
         fileInput.value = ""; 
     };
@@ -160,7 +176,7 @@
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
-        logDebug(`Carregando arquivo: ${file.name}`);
+        logDebug(`Carregando: ${file.name}`);
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
@@ -170,7 +186,7 @@
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
             await renderizarDocumento(loadContainer);
         } catch (err) {
-            logDebug("Falha ao abrir PDF. Pode estar corrompido.", 'error');
+            logDebug("Falha ao abrir PDF.", 'error');
         }
     }
 
@@ -206,429 +222,305 @@
         }
         loadContainer.style.display = 'none';
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
-        inicializarEventos();
     }
 
-    function injetarTarjaNaPagina(pageContainer, w, h, top, left) {
+    // Função universal de injeção visual da Tarja na tela
+    function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
+        if (autoConfirma) tarja.classList.add('confirmada');
+        
         tarja.style.width = w; tarja.style.height = h;
         tarja.style.top = top; tarja.style.left = left;
 
         const controls = document.createElement('div');
-        controls.style.cssText = "display:flex; z-index:10001;";
+        controls.style.cssText = autoConfirma ? "display:none; z-index:10001;" : "display:flex; z-index:10001;";
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
-        const btnConfirmar = document.createElement('button');
-        btnConfirmar.className = 'btn-tarja-ctrl confirmar';
-        btnConfirmar.innerHTML = '✓';
+        
         controls.appendChild(btnRemover);
-        controls.appendChild(btnConfirmar);
         tarja.appendChild(controls);
         pageContainer.appendChild(tarja);
 
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
-        btnConfirmar.onclick = (e) => { e.stopPropagation(); tarja.classList.add('confirmada'); controls.style.display = 'none'; };
-        tarja.onclick = (e) => { if (tarja.classList.contains('confirmada')) { tarja.classList.remove('confirmada'); controls.style.display = 'flex'; } };
         
-        let isDragging = false;
-        let startX, startY;
-        tarja.addEventListener('mousedown', function(e) {
-            if (tarja.classList.contains('confirmada')) return; 
-            const rect = tarja.getBoundingClientRect();
-            if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
-            if (e.target.tagName.toLowerCase() === 'button') return;
-            isDragging = true;
-            startX = e.clientX - tarja.offsetLeft;
-            startY = e.clientY - tarja.offsetTop; 
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!isDragging) return;
-            let x = e.clientX - startX; let y = e.clientY - startY;
-            if (x < 0) x = 0; if (y < 0) y = 0;
-            if (x + tarja.offsetWidth > pageContainer.offsetWidth) x = pageContainer.offsetWidth - tarja.offsetWidth;
-            if (y + tarja.offsetHeight > pageContainer.offsetHeight) y = pageContainer.offsetHeight - tarja.offsetHeight;
-            tarja.style.left = `${x}px`; tarja.style.top = `${y}px`;
-        });
-        document.addEventListener('mouseup', () => isDragging = false);
+        // Clicar na tarja permite excluir mesmo depois de confirmada
+        tarja.onclick = (e) => { 
+            if (tarja.classList.contains('confirmada')) { 
+                tarja.classList.remove('confirmada'); 
+                controls.style.display = 'flex'; 
+            } 
+        };
     }
 
     function removeAcentos(str) {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    function inicializarEventos() {
-        document.getElementById('btn-confirm-all').onclick = function() {
-            const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
-            pendentes.forEach(btn => btn.click());
-            logDebug(`[Ação] ${pendentes.length} tarjas confirmadas pelo usuário.`);
-            this.style.display = 'none'; 
-        };
-
-        // BLACKLIST NUCLEAR (Protege as palavras administrativas e estruturais de serem tarjadas)
-        const baseNuclear = "COMANDO|MILITARES|MILITAR|EX[EÉ]RCITO|MINIST[EÉ]RIO|SECRETARIA|DEPARTAMENTO|DIRETORIA|SELE[CÇ][AÃ]O|COMANDANTES|CHEFES|DIRETORES|ORGANIZA[CÇ][OÕ]ES|INFORMEX|DIFUS[AÃ]O|ASSUNTO|QUADROS|TURMAS|INFANTARIA|CAVALARIA|ARTILHARIA|ENGENHARIA|COMUNICA[CÇ][OÕ]ES|INTEND[EÊ]NCIA|M[EÉ]DICO|DENTISTA|FARMAC[EÊ]UTICO|TOTAL|SEDE|CIDADE|POSTO|ATUAL|OBS|ORD|PALAVRA|OFICIAL|INFORMAR|ESCLARECER|DEVER|AMAZ[OÔ]NIA|ORIENTAL|NORDESTE|OESTE|SUL|SUDESTE|PLANALTO|LESTE|CENTRO|BATALHA|PATRONOS|QUALIDADES|INDISPENS[AÁ]VEIS|MENTE|EQUILIBRADA|INCERTEZAS|CONSERVE|CORAGEM|DETERMINA[CÇ][AÃ]O|EXPERI[EÊ]NCIA|CONHECIMENTO|ATRIBUTOS|ENTUSIASMO|LIDERAN[CÇ]A|FLEXIBILIDADE|MATURIDADE|FERRAMENTAS|DECIS[OÕ]ES|DISCERNIMENTO|JUSTI[CÇ]A|SUBORDINADOS|EXEMPLO|SUCESSO|RESPONSABILIDADE|MANUTEN[CÇ][AÃ]O|FORTE|COESO|DEUS|ABEN[CÇ]OE|BRASILEIRO|QUE|VON|CLAUSEWITZ|TEMPO|PELA|MISS[AÃ]O|PARA|QUAL|FORAM|SELECIONADOS|AFIRMO|MINHA|CREN[CÇ]A|CUMPRIR[AÃ]O|TAREFA|IMBU[IÍ]DOS|MAIS|CAROS|VALORES|NOSSA|INSTITUI[CÇ][AÃ]O|EXERCER|ASSUMINDO|RESPONSABILIDADES|INERENTES|MAIOR|DESAFIO|CARREIRA|LONGO|SUAS|ALICER[CÇ]ADOS|PROFISSIONAL|FORNECER|NECESS[AÁ]RIAS|ARTE|COMANDAR|CONFIO|PLENAMENTE|TOMAR[AÃ]O|CONDUZINDO|SEUS|MEIO|DESEJO|TODOS|CONCITANDO|AINDA|CONTRIBUIR|NOSSO|DADOS|PESSOAIS|SENS[ÍI]VEIS|LEI|GERAL|PROTE[CÇ][AÃ]O|ARTIGO|PAR[AÁ]GRAFO|INCISO|AL[IÍ]NEA|LEGISLA[CÇ][AÃ]O|DISTRIBUI[CÇ][AÃ]O|VETFORINEAS|OMATUAL|OMSEDE|AQSVT|BIPGD|RIODE|BEXAP|QGEX|IUGIPOSRO|VATUS|SOEIAL|ANOS|VIT[OÓ]RIA|PROCEDIMENTO|PROPOSTA|FINAL|AJUSTADA|DEMONSTRA[CÇ][AÃ]O|EXEQUIBILIDADE|PROPONENTE|IDENTIFICA[CÇ][AÃ]O|ITEM|VALOR|OFERTADO|DESCRI[CÇ][AÃ]O|OBJETO|COMPOSI[CÇ][AÃ]O|CUSTOS|RATEADOS|INTERNO|ESTIMADO|INDICADORES|CONDI[CÇ][OÕ]ES|COMERCIAIS|FORNECEDOR|EDITAL|PREG[AÃ]O|ELETR[OÔ]NICO|REGISTRO|PRE[CÇ]OS|TERMO|REFER[EÊ]NCIA|PROCESSO|ADMINISTRATIVO|EMPRESA|ESPECIALIZADA|EQUIPAMENTOS|C[AÂ]MARAS|REFRIGERA[CÇ][AÃ]O|SERVI[CÇ]O|PREVENTIVA|CORRETIVA|SUBSTITUI[CÇ][AÃ]O|GARANTIA|M[ÍI]NIMA|EXECU[CÇ][AÃ]O|CONTEMPLA|FORNECIMENTO|MATERIAIS|OBRA|EPIS|TESTES|FUNCIONAMENTO|DESLOCAMENTO|LOG[IÍ]STICA|INTEGRAL|COMPONENTE|CUSTO|UNIT|OBSERVA[CÇ][AÃ]O|T[EÉ]CNICO|APOIO|OPERACIONAL|DESPESAS|ADMINISTRATIVAS|LUCRO|MARGEM|DECLARA[CÇ][AÃ]O|POSITIVA|TRIBUTOS|ENCARGOS|ESPECIFICA[CÇ][OÕ]ES|QUANTIDADES|EXIG[EÊ]NCIAS|ANEXO|SUBCONTRATA[CÇ][AÃ]O|CONTRATUAL|PREJU[IÍ]ZO|ASSINATURA|CONTRATO|AGENDADOS|DEMANDA|CONTRATANTE|VALIDADE|INFERIOR|APRESENTA[CÇ][AÃ]O|PAGAMENTO|CONFORME|REGRAS|M[EÊ]S|MESES|DIA|DIAS|UNID|QTD|OR[GÇ][AÃ]O|UASG|CAMARA|NACIONAL|MODELOS|LICITACOES|CONTRATOS|CONSULTORIA|SET|APROV|GERENCIADOR|PARTICIPANTE|FORMALIZACAO|CADASTRO|RESERVA|SISTEMA|ATUALIZACAO|NEGOCIACAO|REMANEJAMENTO|CANCELAMENTO|LICITANTE|VENCEDOR|PENALIDADES|GERAIS|MATRICULA|FUNCIONAL|ATA|ORDENADOR|DESPESAS|MODALIDADE|PARTICIPANTES|ADESAO|ACRESCIMO|HOMOLOGACAO|ADJUDICATARIO|COMPROMISSO|INVILABILIZEM|TRIBUNAL|CONTAS|UNIAO|ESTADO|MUNICIPIO|FAVORECIDO|PORTARIA|NOMEADO|DEFESA|DISPOSICOES|SEGUIR|MNE|QISV|ROSTO|RAIGSVIREEE|EEA|DGP|DTI|ODOS|TENCEL|EXTERIOR";
-        const nuclearBlacklist = new RegExp(`(${baseNuclear})`, 'i');
-
-        // 2. APARADOR DE PATENTES (Cortador de jargões que ficam grudados nos nomes)
-        const ranksToTrim = new Set([
-            "MAJ","TEN","CEL","TCEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA","QEMEL","QEMFC","MEDVET"
-        ]);
-
-        function limparBordasDoNome(matchStr) {
-            let words = matchStr.split(/\s+/);
-            while (words.length > 0) {
-                let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]]/g, ''));
-                if (ranksToTrim.has(limpa) || limpa.length <= 2) words.shift();
-                else break;
-            }
-            while (words.length > 0) {
-                let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]]/g, ''));
-                if (ranksToTrim.has(limpa) || limpa.length <= 2) words.pop();
-                else break;
-            }
-            return words.join(' ');
+    // Limpeza pesada para arrancar patentes do começo ou fim de nomes
+    const ranksToTrim = new Set(["MAJ","TEN","CEL","TCEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"]);
+    
+    function limparBordasDoNome(matchStr) {
+        let words = matchStr.split(/\s+/);
+        while (words.length > 0) {
+            let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]|]/g, ''));
+            if (ranksToTrim.has(limpa) || limpa.length <= 2) words.shift();
+            else break;
         }
-
-        // 3. AS MÁSCARAS DE BUSCA EXATA
-        const regexesBusca = [
-            { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
-            { tipo: 'num', r: /(?:^|\b|\D)(\d{8,11})(?!\d)/g }, 
-            { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
-            // Endereços: Blindado contra falsos "AL" de patente da tabela
-            { tipo: 'end', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.|Avenida|Al\.|Alameda|Pça\.|Praça|Tv\.|Travessa|Rod\.|Rodovia|Est\.|Estrada|Qd\.|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\s+[^\n|()\[\]]{5,100}\b\d{1,6})\b/gi },
-            { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
-            // NOME PRÓPRIO FLEXÍVEL: Permite minúsculas, mas focado na estrutura de nome.
-            { tipo: 'nome', r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{1,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{1,}){1,7})(?=[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]|$)/g } 
-        ];
-
-        document.getElementById('btn-auto-scan').onclick = async function() {
-            const btn = this;
-            const scanContainer = document.getElementById('lgpd-scan-progress-container');
-            const scanStatus = document.getElementById('lgpd-scan-status');
-            const scanBar = document.getElementById('lgpd-scan-bar');
-            btn.disabled = true; scanContainer.style.display = "block";
-            document.getElementById('lgpd-debug-log').style.display = 'block';
-
-            try {
-                const totalPages = globalPdfJsDoc.numPages;
-                let tarjasDetectadas = 0;
-
-                logDebug("\n[INÍCIO] Escaneamento Inteligente acionado.");
-
-                for (let i = 1; i <= totalPages; i++) {
-                    scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
-                    scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
-                    
-                    const page = await globalPdfJsDoc.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    const textContent = await page.getTextContent();
-                    const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
-                    
-                    if (pageContainer) {
-                        const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
-                        
-                        if (validItems.length > 10) {
-                            const linhas = [];
-                            let linhaAtual = null;
-
-                            validItems.sort((a, b) => {
-                                const dy = b.transform[5] - a.transform[5];
-                                if (Math.abs(dy) > 5) return dy;
-                                return a.transform[4] - b.transform[4];
-                            }).forEach(item => {
-                                const itemY = item.transform[5];
-                                if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
-                                    linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
-                                    linhas.push(linhaAtual);
-                                }
-                                
-                                let sep = '';
-                                if (linhaAtual.tokens.length > 0) {
-                                    const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
-                                    const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
-                                    // PULO DO GATO 2: Tolerância de espaço aumentada para colunas de tabelas largas (de 25 para 45)
-                                    if (distX > 45) sep = ' | ';
-                                    else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
-                                }
-                                linhaAtual.tokens.push(item);
-                                
-                                for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
-                                for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
-                                
-                                linhaAtual.texto += sep + item.str;
-                            });
-
-                            linhas.forEach(linha => {
-                                const overlaps = new Uint8Array(linha.texto.length);
-
-                                const marcarTrecho = (matchIdx, matchLen, tipo, cleanStr) => {
-                                    let startIndex = matchIdx;
-                                    let endIndex = matchIdx + matchLen - 1;
-                                    
-                                    while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
-                                    while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
-                                    if (startIndex > endIndex) return;
-
-                                    const first = linha.charMap[startIndex].item;
-                                    const last = linha.charMap[endIndex].item;
-                                    const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                    const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                    const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                    
-                                    let isAss = (tipo === 'ass');
-                                    let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
-                                    let w_val, h_val, finalX, finalY;
-
-                                    if (isAss) {
-                                        if (isGovBr) {
-                                            w_val = 260; h_val = 90;
-                                            finalX = x1 - 250;
-                                            finalY = y0 - 45;
-                                        } else {
-                                            w_val = Math.max(x1 - x0 + 150, 250); 
-                                            h_val = Math.max((fs * viewport.scale) + 30, 60);
-                                            finalX = x0 - 20;
-                                            finalY = y0 - 15;
-                                        }
-                                    } else {
-                                        w_val = Math.max(x1 - x0 + 10, 15);
-                                        h_val = Math.max((fs * viewport.scale) + 8, 12);
-                                        finalX = x0 - 5;
-                                        finalY = y0 - h_val + 2;
-                                    }
-
-                                    if (finalX < 0) finalX = 0;
-                                    if (finalY < 0) finalY = 0;
-                                    
-                                    injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${finalY}px`, `${finalX}px`);
-                                    tarjasDetectadas++;
-                                };
-
-                                regexesBusca.forEach(regObj => {
-                                    let match;
-                                    regObj.r.lastIndex = 0;
-                                    while ((match = regObj.r.exec(linha.texto)) !== null) {
-                                        let originalStr = match[1] || match[0];
-                                        let cleanStr = originalStr;
-
-                                        if (regObj.tipo === 'end') {
-                                            if (/[|()\[\]]/.test(originalStr)) continue; 
-                                        }
-
-                                        if (regObj.tipo === 'num') {
-                                            if (cleanStr.length === 8 && cleanStr.startsWith('202')) continue;
-                                        }
-
-                                        if (regObj.tipo === 'nome') {
-                                            // Trava contra Gagueira do OCR (3 letras iguais)
-                                            if (/([A-Z])\1{2,}/i.test(originalStr)) {
-                                                logDebug(`[OCR] Ignorado (Gagueira): ${originalStr}`, 'skip');
-                                                continue;
-                                            }
-
-                                            if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) {
-                                                logDebug(`[PJ] Ignorado: ${originalStr}`, 'skip');
-                                                continue; 
-                                            }
-                                            if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue;
-
-                                            let unaccented = removeAcentos(originalStr).toUpperCase();
-                                            if (nuclearBlacklist.test(unaccented)) {
-                                                logDebug(`[Nuclear] Ignorado: ${originalStr}`, 'skip');
-                                                continue; 
-                                            }
-
-                                            cleanStr = limparBordasDoNome(originalStr);
-                                            
-                                            // Trava anti-esmagamento (Blocos de texto grudados pelo OCR)
-                                            if (cleanStr.split(/\s+/).some(w => w.length > 18)) {
-                                                logDebug(`[OCR] Ignorado (Bloco esmagado): ${cleanStr}`, 'skip');
-                                                continue;
-                                            }
-
-                                            if (cleanStr.split(/\s+/).length < 2) continue; 
-                                        }
-
-                                        let matchIdx = linha.texto.indexOf(cleanStr, match.index);
-                                        if (matchIdx === -1) matchIdx = match.index;
-
-                                        let hasOverlap = false;
-                                        for (let k = 0; k < cleanStr.length; k++) {
-                                            if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
-                                        }
-                                        if (!hasOverlap) {
-                                            logDebug(`>>> TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                            marcarTrecho(matchIdx, cleanStr.length, regObj.tipo, cleanStr);
-                                            for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
-                                        }
-                                    }
-                                });
-                            });
-                        } else {
-                            scanStatus.innerText = `Pág. ${i}: Processando OCR (IA)...`;
-                            if (typeof Tesseract === 'undefined') await loadScript('https://unpkg.com/tesseract.js@v4.1.4/dist/tesseract.min.js');
-                            
-                            const canvas = pageContainer.querySelector('canvas');
-                            const { data } = await Tesseract.recognize(canvas, 'por', {
-                                logger: m => {
-                                    if(m.status === 'recognizing text') scanStatus.innerText = `Pág. ${i} (IA Visual): ${Math.round(m.progress * 100)}%`;
-                                }
-                            });
-
-                            data.lines.forEach(line => {
-                                let overlaps = new Uint8Array(line.text.length);
-
-                                regexesBusca.forEach(regObj => {
-                                    regObj.r.lastIndex = 0;
-                                    let match;
-                                    while ((match = regObj.r.exec(line.text)) !== null) {
-                                        let originalStr = match[1] || match[0];
-                                        let cleanStr = originalStr;
-                                        
-                                        if (regObj.tipo === 'end') {
-                                            if (/[|()\[\]]/.test(originalStr)) continue; 
-                                        }
-
-                                        if (regObj.tipo === 'num') {
-                                            if (cleanStr.length === 8 && cleanStr.startsWith('202')) continue;
-                                        }
-
-                                        if (regObj.tipo === 'nome') {
-                                            if (/([A-Z])\1{2,}/i.test(originalStr)) continue;
-                                            if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) continue;
-                                            if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue;
-                                            
-                                            let unaccented = removeAcentos(originalStr).toUpperCase();
-                                            if (nuclearBlacklist.test(unaccented)) continue;
-                                            
-                                            cleanStr = limparBordasDoNome(originalStr);
-                                            if (cleanStr.split(/\s+/).some(w => w.length > 18)) continue;
-                                            if (cleanStr.split(/\s+/).length < 2) continue;
-                                        }
-                                        
-                                        let matchIdx = line.text.indexOf(cleanStr, match.index);
-                                        if (matchIdx === -1) matchIdx = match.index;
-
-                                        let hasOverlap = false;
-                                        for (let k = 0; k < cleanStr.length; k++) {
-                                            if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
-                                        }
-
-                                        if (!hasOverlap) {
-                                            logDebug(`>>> TARJADO OCR [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                            tarjasDetectadas++;
-                                            
-                                            let matchEnd = matchIdx + cleanStr.length;
-                                            let charCursor = 0;
-                                            let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
-                                            
-                                            line.words.forEach(w => {
-                                                let wStart = line.text.indexOf(w.text, charCursor);
-                                                if(wStart === -1) wStart = charCursor;
-                                                let wEnd = wStart + w.text.length;
-                                                charCursor = wEnd;
-                                                
-                                                if (wEnd > matchIdx && wStart < matchEnd) {
-                                                    if (w.bbox.x0 < bbox.x0) bbox.x0 = w.bbox.x0;
-                                                    if (w.bbox.y0 < bbox.y0) bbox.y0 = w.bbox.y0;
-                                                    if (w.bbox.x1 > bbox.x1) bbox.x1 = w.bbox.x1;
-                                                    if (w.bbox.y1 > bbox.y1) bbox.y1 = w.bbox.y1;
-                                                }
-                                            });
-                                            
-                                            if(bbox.x0 === 9999) bbox = line.bbox;
-                                            
-                                            let isAss = (regObj.tipo === 'ass');
-                                            let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
-                                            let w_val, h_val, finalX, finalY;
-
-                                            if (isAss) {
-                                                if (isGovBr) {
-                                                    w_val = 260; h_val = 90;
-                                                    finalX = bbox.x1 - 250;
-                                                    finalY = bbox.y0 - 45;
-                                                } else {
-                                                    w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250);
-                                                    h_val = Math.max(bbox.y1 - bbox.y0 + 30, 60);
-                                                    finalX = bbox.x0 - 20;
-                                                    finalY = bbox.y0 - 15;
-                                                }
-                                            } else {
-                                                w_val = (bbox.x1 - bbox.x0) + 10;
-                                                h_val = (bbox.y1 - bbox.y0) + 8;
-                                                finalX = bbox.x0 - 5;
-                                                finalY = bbox.y0 - 4;
-                                            }
-
-                                            if (finalX < 0) finalX = 0;
-                                            if (finalY < 0) finalY = 0;
-                                            
-                                            injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${finalY}px`, `${finalX}px`);
-
-                                            for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
-                                        }
-                                    }
-                                });
-                            });
-                        }
-                    }
-                }
-                
-                logDebug(`\n[SUCESSO] ${tarjasDetectadas} tarjas sugeridas prontas para revisão.`);
-                alert(`Concluído! Encontramos ${tarjasDetectadas} potenciais dados sensíveis.\n\nRevise a tela e exclua (✕) as tarjas que foram marcadas por engano.`);
-                scanContainer.style.display = "none";
-                btn.disabled = false;
-                if (tarjasDetectadas > 0) document.getElementById('btn-confirm-all').style.display = 'block';
-            } catch (e) { 
-                logDebug(`Erro: ${e.message}`, 'error');
-                scanStatus.innerText = "Erro no escaneamento.";
-                btn.disabled = false; 
-            }
-        };
-
-        document.getElementById('btn-save-pdf').onclick = async function() {
-            const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
-            if (tarjas.length === 0) { alert("Nenhuma tarja foi confirmada no botão verde (✓)."); return; }
-            
-            const btn = this;
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = "⏳ GERANDO PDF SEGURO...";
-            btn.disabled = true;
-
-            try {
-                const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
-                
-                const form = pdfDoc.getForm();
-                try {
-                    form.flatten();
-                    logDebug("[Segurança] Assinaturas digitais e formulários achatados.");
-                } catch(err) {
-                    logDebug("[Aviso] Sem campos flutuantes para achatar.");
-                }
-
-                const paginasPdfLib = pdfDoc.getPages();
-                tarjas.forEach(tarja => {
-                    const container = tarja.parentElement;
-                    const pageNum = parseInt(container.getAttribute('data-page-number'));
-                    const paginaAlvo = paginasPdfLib[pageNum - 1];
-                    const { width: pdfWidth } = paginaAlvo.getSize();
-                    const scaleX = pdfWidth / container.offsetWidth;
-                    const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
-                    paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
-                });
-                const pdfBytes = await pdfDoc.save();
-                const blob = new Blob([pdfBytes], { type: "application/pdf" });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = "documento_tratado_lgpd.pdf";
-                link.click();
-            } catch(e) { alert("Erro ao salvar PDF."); } finally {
-                btn.innerHTML = textoOriginal;
-                btn.disabled = false;
-            }
-        };
+        while (words.length > 0) {
+            let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]|]/g, ''));
+            if (ranksToTrim.has(limpa) || limpa.length <= 2) words.pop();
+            else break;
+        }
+        return words.join(' ');
     }
+
+    // As Regras de Ouro
+    const regexesBusca = [
+        // DADOS MATEMÁTICOS (Tarja Automática Certa)
+        { tipo: 'doc', auto: true, r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
+        { tipo: 'ass', auto: true, r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+        { tipo: 'end', auto: true, r: /(?:^|[^A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç])((?:Rua|Av\.|Avenida|Al\.|Alameda|Pça\.|Praça|Tv\.|Travessa|Rod\.|Rodovia|Est\.|Estrada|Qd\.|Quadra|Setor|SQS|SQN|QI|QE|SHIS|Cidade\s+Nova)\s+[^\n|()\[\]]{5,100}\b\d{1,6})\b/gi },
+        { tipo: 'cep', auto: true, r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
+        
+        // SUSPEITOS DE NOME PRÓPRIO (Vão para a Lista de Revisão Humana)
+        // Expressão abrangente para pegar Versaletes e Maiúsculas Normais (mínimo 2 palavras)
+        { tipo: 'nome', auto: false, r: /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇa-záàãâéêíóõôúüç]{2,}){1,6})\b/g } 
+    ];
+
+    document.getElementById('btn-auto-scan').onclick = async function() {
+        const btn = this;
+        const scanContainer = document.getElementById('lgpd-scan-progress-container');
+        const scanStatus = document.getElementById('lgpd-scan-status');
+        const scanBar = document.getElementById('lgpd-scan-bar');
+        
+        btn.style.display = "none"; 
+        scanContainer.style.display = "block";
+        document.getElementById('lgpd-debug-log').style.display = 'block';
+        
+        mapNomesSuspeitos.clear();
+        let tarjasAutoDetectadas = 0;
+
+        try {
+            const totalPages = globalPdfJsDoc.numPages;
+            logDebug("\n[INÍCIO] Mapeamento Híbrido Acionado (Auto + Revisão).");
+
+            for (let i = 1; i <= totalPages; i++) {
+                scanStatus.innerText = `Lendo Pág. ${i}/${totalPages}...`;
+                scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
+                
+                const page = await globalPdfJsDoc.getPage(i);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
+                
+                if (pageContainer) {
+                    // O Tesseract fará a varredura visual em todas as páginas para não perder nada nas tabelas
+                    const canvas = pageContainer.querySelector('canvas');
+                    const { data } = await Tesseract.recognize(canvas, 'por');
+
+                    data.lines.forEach(line => {
+                        let overlaps = new Uint8Array(line.text.length);
+
+                        regexesBusca.forEach(regObj => {
+                            regObj.r.lastIndex = 0;
+                            let match;
+                            while ((match = regObj.r.exec(line.text)) !== null) {
+                                let originalStr = match[1] || match[0];
+                                let cleanStr = originalStr;
+                                
+                                if (regObj.tipo === 'nome') {
+                                    // Limpeza rápida para descartar absurdos logo de cara
+                                    if (/([A-Z])\1{2,}/i.test(originalStr)) continue; // Gagueira
+                                    if (/\b(LTDA|ME|EPP|S\/?A|CIA|COM[EÉ]RCIO|IND[UÚ]STRIA|EIRELI|LIMITADA|REFRIGERA[CÇ][AÃ]O|M[ÁA]QUINAS|SERVI[CÇ]OS)\b/i.test(originalStr)) continue; // Empresa
+                                    if (/(RUA|AV|AVENIDA|TV|TRAVESSA|ESTRADA|CEP|CIDADE|BAIRRO)/i.test(originalStr)) continue; // Endereço
+                                    
+                                    cleanStr = limparBordasDoNome(originalStr);
+                                    if (cleanStr.split(/\s+/).some(w => w.length > 18)) continue; // Esmagado
+                                    if (cleanStr.split(/\s+/).length < 2) continue; // Uma palavra só
+                                }
+                                
+                                let matchIdx = line.text.indexOf(cleanStr, match.index);
+                                if (matchIdx === -1) matchIdx = match.index;
+
+                                let hasOverlap = false;
+                                for (let k = 0; k < cleanStr.length; k++) {
+                                    if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
+                                }
+
+                                if (!hasOverlap) {
+                                    let matchEnd = matchIdx + cleanStr.length;
+                                    let charCursor = 0;
+                                    let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                    
+                                    line.words.forEach(w => {
+                                        let wStart = line.text.indexOf(w.text, charCursor);
+                                        if(wStart === -1) wStart = charCursor;
+                                        let wEnd = wStart + w.text.length;
+                                        charCursor = wEnd;
+                                        
+                                        if (wEnd > matchIdx && wStart < matchEnd) {
+                                            if (w.bbox.x0 < bbox.x0) bbox.x0 = w.bbox.x0;
+                                            if (w.bbox.y0 < bbox.y0) bbox.y0 = w.bbox.y0;
+                                            if (w.bbox.x1 > bbox.x1) bbox.x1 = w.bbox.x1;
+                                            if (w.bbox.y1 > bbox.y1) bbox.y1 = w.bbox.y1;
+                                        }
+                                    });
+                                    
+                                    if(bbox.x0 === 9999) bbox = line.bbox;
+
+                                    if (regObj.auto) {
+                                        // TARJA DIRETO NA TELA (Matemática Pura: Docs e Assinaturas)
+                                        logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
+                                        tarjasAutoDetectadas++;
+                                        
+                                        let isAss = (regObj.tipo === 'ass');
+                                        let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
+                                        let w_val, h_val, finalX, finalY;
+
+                                        if (isAss) {
+                                            if (isGovBr) {
+                                                w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45;
+                                            } else {
+                                                w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(bbox.y1 - bbox.y0 + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15;
+                                            }
+                                        } else {
+                                            w_val = (bbox.x1 - bbox.x0) + 10; h_val = (bbox.y1 - bbox.y0) + 8; finalX = bbox.x0 - 5; finalY = bbox.y0 - 4;
+                                        }
+
+                                        if (finalX < 0) finalX = 0; if (finalY < 0) finalY = 0;
+                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${finalY}px`, `${finalX}px`, true);
+
+                                    } else {
+                                        // GUARDA O NOME SUSPEITO PARA REVISÃO HUMANA
+                                        let nomeCapitalizado = cleanStr.toUpperCase();
+                                        logDebug(`[Suspeito para Revisão] Encontrado: ${nomeCapitalizado}`, 'suspect');
+                                        
+                                        if (!mapNomesSuspeitos.has(nomeCapitalizado)) {
+                                            mapNomesSuspeitos.set(nomeCapitalizado, []);
+                                        }
+                                        // Guarda as coordenadas para aplicar só se o humano mandar
+                                        mapNomesSuspeitos.get(nomeCapitalizado).push({
+                                            pageNode: pageContainer,
+                                            w: (bbox.x1 - bbox.x0) + 10,
+                                            h: (bbox.y1 - bbox.y0) + 8,
+                                            x: Math.max(0, bbox.x0 - 5),
+                                            y: Math.max(0, bbox.y0 - 4)
+                                        });
+                                    }
+
+                                    for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
+                                }
+                            }
+                        });
+                    });
+                }
+            }
+            
+            scanContainer.style.display = "none";
+            
+            // Monta o Painel de Revisão Humana
+            const painelRevisao = document.getElementById('painel-revisao-nomes');
+            const divLista = document.getElementById('lista-nomes-suspeitos');
+            divLista.innerHTML = ''; // Limpa anterior
+            
+            if (mapNomesSuspeitos.size > 0) {
+                // Ordena alfabeticamente para facilitar a leitura do usuário
+                const nomesOrdenados = Array.from(mapNomesSuspeitos.keys()).sort();
+                
+                nomesOrdenados.forEach(nome => {
+                    const label = document.createElement('label');
+                    label.className = 'lgpd-name-item';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = nome;
+                    // Sugere marcado (check) por padrão, para o humano só desmarcar o lixo
+                    checkbox.checked = true; 
+                    
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(nome));
+                    divLista.appendChild(label);
+                });
+                
+                painelRevisao.style.display = 'flex';
+                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} entidades únicas prontas para revisão.`);
+                alert(`Mapeamento Concluído!\n\nDocs/Assinaturas foram tarjados automaticamente.\nForam encontrados ${mapNomesSuspeitos.size} possíveis Nomes Próprios.\n\nRevise a lista no painel, desmarque o que NÃO é pessoa, e clique em "Aplicar Tarjas Selecionadas".`);
+            } else {
+                alert("Mapeamento concluído. Nenhum nome encontrado para revisão.");
+            }
+
+        } catch (e) { 
+            logDebug(`Erro Crítico: ${e.message}`, 'error');
+            scanStatus.innerText = "Erro no escaneamento.";
+            btn.style.display = "block";
+        }
+    };
+
+    // Botão de Aplicar a Escolha Humana
+    document.getElementById('btn-aplicar-nomes').onclick = function() {
+        const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
+        let aplicadas = 0;
+        
+        checkboxes.forEach(chk => {
+            const nomeEscolhido = chk.value;
+            const coordenadasArray = mapNomesSuspeitos.get(nomeEscolhido);
+            
+            if (coordenadasArray) {
+                coordenadasArray.forEach(coord => {
+                    injetarTarjaNaPagina(coord.pageNode, `${coord.w}px`, `${coord.h}px`, `${coord.y}px`, `${coord.x}px`, true);
+                    aplicadas++;
+                });
+            }
+        });
+        
+        logDebug(`[SUCESSO] O usuário autorizou a aplicação de ${aplicadas} tarjas de nomes confirmados.`);
+        
+        // Esconde o painel de revisão, a missão dele acabou
+        document.getElementById('painel-revisao-nomes').style.display = 'none';
+        alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
+    };
+
+    document.getElementById('btn-save-pdf').onclick = async function() {
+        const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
+        if (tarjas.length === 0) { alert("Não há tarjas aplicadas no documento para salvar."); return; }
+        
+        const btn = this;
+        const textoOriginal = btn.innerHTML;
+        btn.innerHTML = "⏳ GERANDO PDF SEGURO...";
+        btn.disabled = true;
+
+        try {
+            const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
+            
+            const form = pdfDoc.getForm();
+            try {
+                form.flatten();
+                logDebug("[Segurança] Assinaturas digitais e formulários achatados.");
+            } catch(err) {
+                logDebug("[Aviso] Sem campos flutuantes para achatar.");
+            }
+
+            const paginasPdfLib = pdfDoc.getPages();
+            tarjas.forEach(tarja => {
+                const container = tarja.parentElement;
+                const pageNum = parseInt(container.getAttribute('data-page-number'));
+                const paginaAlvo = paginasPdfLib[pageNum - 1];
+                const { width: pdfWidth } = paginaAlvo.getSize();
+                const scaleX = pdfWidth / container.offsetWidth;
+                const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
+                paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
+            });
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "documento_tratado_lgpd.pdf";
+            link.click();
+        } catch(e) { alert("Erro ao salvar PDF."); } finally {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }
+    };
 
     carregarDependencias();
 })();
