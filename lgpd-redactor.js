@@ -133,6 +133,7 @@
         if (loader) loader.remove();
     };
 
+    // FUNÇÃO ATUALIZADA: MUDANÇA PARA O CDNJS (Cloudflare) PARA EVITAR O ERRO 404 DO UNPKG
     async function carregarDependencias() {
         try {
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
@@ -272,7 +273,7 @@ REGRAS ABSOLUTAS:
 1. NÃO inclua patentes militares junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
 2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas.
 3. IMPORTANTE: O texto foi lido por OCR e pode ter erros. Copie o nome EXATAMENTE como aparece.
-4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES. NÃO RESUMA! Se houver 50 ou 100 nomes na lista, você DEVE retornar todos eles. 
+4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS FÍSICAS DA PÁGINA. NÃO RESUMA, NÃO CORTE! Se houver 50 ou 100 nomes na lista, você DEVE retornar todos eles obrigatoriamente. 
 
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown, nem crases, apenas o Array.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
@@ -293,7 +294,7 @@ ${textoDaPagina}`;
         };
 
         try {
-            // Usa o modelo base 'gemini-1.5-flash'
+            // Usa o modelo base 'gemini-1.5-flash' (NOME CORRIGIDO DE ACORDO COM A GOOGLE API)
             let data = await callGoogleApi('gemini-1.5-flash');
             
             // Fallback se a chave estiver configurada especificamente para o pro
