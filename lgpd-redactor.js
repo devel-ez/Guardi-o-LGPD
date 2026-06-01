@@ -261,67 +261,93 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA GEMINI (O "ARRASTÃO" DE MODELOS UNIVERSAL) ---
-    async function getNamesFromGemini(textoDaPagina, apiKey) {
+    // --- CÉREBRO DA IA (SISTEMA DE AUTODIAGNÓSTICO E DISCOVERY) ---
+    async function discoverAndExtractNames(textoDaPagina, apiKey) {
+        let modelToUse = null;
+
+        // 1. Fase de Discovery: Pergunta ao Google quais modelos a chave pode usar
+        logDebug(`[Discovery] Verificando modelos habilitados para sua chave...`, 'info');
+        try {
+            const listResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            const listData = await listResponse.json();
+
+            if (listData.error) {
+                logDebug(`[Erro API Discovery] ${listData.error.message}`, 'error');
+                return null;
+            }
+
+            if (listData.models) {
+                // Filtra modelos que geram conteúdo
+                const validModels = listData.models.filter(m => m.supportedGenerationMethods.includes("generateContent"));
+                
+                // Prioridade de escolha: flash -> pro -> qualquer outro gemini
+                let best = validModels.find(m => m.name.includes("gemini-1.5-flash"));
+                if (!best) best = validModels.find(m => m.name.includes("gemini-1.5-pro"));
+                if (!best) best = validModels.find(m => m.name.includes("gemini-pro"));
+                if (!best && validModels.length > 0) best = validModels[0]; // Pega o primeiro genérico
+
+                if (best) {
+                    // O Google retorna o nome com 'models/' na frente, a gente usa isso direto na URL
+                    modelToUse = best.name.split('/').pop(); 
+                    logDebug(`[Discovery] Sucesso! Modelo selecionado: ${modelToUse}`, 'match');
+                }
+            }
+        } catch (e) {
+            logDebug(`[Discovery Falhou] Erro de rede: ${e.message}`, 'error');
+            return null;
+        }
+
+        if (!modelToUse) {
+            logDebug(`[Aviso Crítico] Sua chave é válida, mas o projeto no Google Cloud não tem permissão para usar nenhum modelo Gemini.`, 'error');
+            return null;
+        }
+
+        // 2. Fase de Extração: Agora que sabemos qual modelo funciona, mandamos o texto
         const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
 Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
 
 REGRAS ABSOLUTAS:
 1. NÃO inclua patentes militares junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
 2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas.
-3. Copie o nome EXATAMENTE como aparece.
-4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS FÍSICAS DA PÁGINA. NÃO RESUMA! Se houver 50 ou 100 nomes na lista, você DEVE retornar todos eles obrigatoriamente. 
+3. Copie o nome EXATAMENTE como aparece na página.
+4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS FÍSICAS DA PÁGINA. NÃO RESUMA! 
 
-Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva mais nada, apenas o Array.
+Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
 
 Texto Extraído:
 ${textoDaPagina}`;
 
-        // A grande jogada: Tentar do modelo mais novo até o mais básico, sem exigir parâmetro JSON
-        const modelosParaTestar = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'];
+        logDebug(`[IA] Enviando texto para o modelo ${modelToUse}...`, 'info');
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+            const data = await response.json();
 
-        for (let modelName of modelosParaTestar) {
-            logDebug(`[IA] Tentando conectar no modelo: ${modelName}...`, 'info');
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }] // Sem generationConfig para não bugar a versão 1.0
-                    })
-                });
-                const data = await response.json();
-
-                if (data.error) {
-                    if (data.error.code === 404) {
-                        logDebug(`[Aviso API] Modelo ${modelName} não encontrado para essa chave.`, 'skip');
-                        continue; // Pula pro próximo
-                    } else {
-                        logDebug(`[Erro API Google] ${data.error.message}`, 'error');
-                        return [];
-                    }
-                }
-
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
-                    let responseText = data.candidates[0].content.parts[0].text.trim();
-                    
-                    // Extrair o array JSON de dentro do retorno
-                    let jsonMatch = responseText.match(/\[.*\]/s);
-                    if (jsonMatch) {
-                        return JSON.parse(jsonMatch[0]);
-                    } else {
-                        return JSON.parse(responseText); 
-                    }
-                }
-            } catch (e) {
-                logDebug(`[Erro] Falha ao processar a resposta do modelo ${modelName}.`, "error");
+            if (data.error) {
+                logDebug(`[Erro de Extração] ${data.error.message}`, 'error');
+                return null;
             }
+
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                let responseText = data.candidates[0].content.parts[0].text.trim();
+                let jsonMatch = responseText.match(/\[.*\]/s);
+                if (jsonMatch) {
+                    return JSON.parse(jsonMatch[0]);
+                } else {
+                    return JSON.parse(responseText); 
+                }
+            }
+        } catch (e) {
+            logDebug(`[Erro na Extração] Falha ao processar o texto: ${e.message}`, "error");
         }
         
-        logDebug(`[ERRO CRÍTICO] Nenhum modelo da API está liberado para essa chave no momento.`, 'error');
-        alert("Erro de permissão no Google. Nenhum modelo foi encontrado para sua chave API. Consulte o console.");
-        return [];
+        return null;
     }
 
     // Regras Matemáticas Seguras (O que não for nome)
@@ -353,7 +379,7 @@ ${textoDaPagina}`;
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
-            logDebug("\n[INÍCIO] IA Gemini Acionada.");
+            logDebug("\n[INÍCIO] Mapeamento Híbrido Iniciado.");
 
             for (let i = 1; i <= totalPages; i++) {
                 scanStatus.innerText = `Processando Pág. ${i}/${totalPages}...`;
@@ -458,11 +484,12 @@ ${textoDaPagina}`;
                                         }
 
                                         let isAss = (regObj.tipo === 'ass');
+                                        let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
                                         let w_val, h_val, finalX, finalY;
 
-                                        // Ajuste da explosão para focar no centro da assinatura
                                         if (isAss) {
-                                            w_val = 240; h_val = 80; finalX = bbox.x0 - 100; finalY = bbox.y0 - 20;
+                                            if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
+                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
                                         } else {
                                             w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
@@ -477,7 +504,7 @@ ${textoDaPagina}`;
 
                     // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
                     scanStatus.innerText = `Consultando IA na Pág. ${i}...`;
-                    const nomesIA = await getNamesFromGemini(textoIntegralDaPagina, apiKey);
+                    const nomesIA = await discoverAndExtractNames(textoIntegralDaPagina, apiKey);
                     
                     if (nomesIA && Array.isArray(nomesIA)) {
                         nomesIA.forEach(nome => {
@@ -519,6 +546,12 @@ ${textoDaPagina}`;
                                 });
                             }
                         });
+                    } else if (nomesIA === null) {
+                        // Se retornou null, a chave falhou no discovery geral. Aborta a varredura das outras páginas.
+                        alert("Não foi possível acessar a IA. Verifique as configurações da sua chave no painel do Google Cloud.");
+                        btn.style.display = "block";
+                        scanContainer.style.display = "none";
+                        return;
                     }
                 }
             }
