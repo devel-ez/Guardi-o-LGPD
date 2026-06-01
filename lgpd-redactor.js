@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos
+    // 1. Estilos (Agora com tema DeepSeek)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
@@ -9,7 +9,7 @@
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
-        .lgpd-progress-fill { height: 100%; background: #8b5cf6; transition: width 0.1s ease; border-radius: 4px; }
+        .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
         .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
@@ -30,21 +30,21 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
 
-    // 2. Painel Lateral UI
+    // 2. Painel Lateral UI (DeepSeek Version)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
-        <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">🧠 IA GUARDIÃO LGPD</span>
+        <div style="background:#0f172a;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
+            <span style="font-weight:bold;font-size:14px;">🐋 DEEPSEEK GUARDIÃO</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             
-            <div style="background:#f3e8ff; border:1px solid #d8b4fe; padding:10px; border-radius:6px; font-size:11px; color:#6b21a8;">
-                <b>Conexão Google Gemini:</b> Cole sua chave API (Pode ser o formato novo AQ...).
-                <input type="password" id="gemini-api-key" placeholder="Cole a Chave da API aqui..." style="width:100%; margin-top:5px; padding:6px; border:1px solid #d8b4fe; border-radius:4px; font-size:11px;" />
+            <div style="background:#e0f2fe; border:1px solid #bae6fd; padding:10px; border-radius:6px; font-size:11px; color:#0369a1;">
+                <b>Conexão DeepSeek AI:</b> Cole sua chave API (sk-...). O sistema salvará ela no seu navegador para as próximas vezes.
+                <input type="password" id="deepseek-api-key" placeholder="Cole a Chave da API aqui (sk-...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #bae6fd; border-radius:4px; font-size:11px;" />
             </div>
 
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
@@ -61,18 +61,18 @@
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(139, 92, 246, 0.3);">✨ 1. Analisar com IA Gemini</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">✨ 1. Analisar com IA DeepSeek</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
                         <span id="lgpd-scan-status">Iniciando IA...</span>
                         <span id="lgpd-scan-percent">0%</span>
                     </div>
-                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#8b5cf6;"></div></div>
+                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#2563eb;"></div></div>
                 </div>
 
                 <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
-                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 IA Encontrou (Marque as Pessoas Físicas):</span>
+                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 DeepSeek Encontrou (Marque as Pessoas Físicas):</span>
                     <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
                     <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
                 </div>
@@ -89,8 +89,8 @@
     document.body.appendChild(root);
 
     // Carrega chave salva
-    const savedKey = localStorage.getItem('lgpd_gemini_api_key');
-    if (savedKey) document.getElementById('gemini-api-key').value = savedKey;
+    const savedKey = localStorage.getItem('lgpd_deepseek_api_key');
+    if (savedKey) document.getElementById('deepseek-api-key').value = savedKey;
 
     const workspace = document.createElement('div');
     workspace.id = 'lgpd-canvas-workspace';
@@ -103,7 +103,7 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
-            if (tipo === 'suspect') cor = '#c084fc';
+            if (tipo === 'suspect') cor = '#60a5fa'; // Azul claro para DeepSeek
             if (tipo === 'skip') cor = '#94a3b8';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
@@ -261,48 +261,8 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA (SISTEMA DE AUTODIAGNÓSTICO E DISCOVERY) ---
-    async function discoverAndExtractNames(textoDaPagina, apiKey) {
-        let modelToUse = null;
-
-        // 1. Fase de Discovery: Pergunta ao Google quais modelos a chave pode usar
-        logDebug(`[Discovery] Verificando modelos habilitados para sua chave...`, 'info');
-        try {
-            const listResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            const listData = await listResponse.json();
-
-            if (listData.error) {
-                logDebug(`[Erro API Discovery] ${listData.error.message}`, 'error');
-                return null;
-            }
-
-            if (listData.models) {
-                // Filtra modelos que geram conteúdo
-                const validModels = listData.models.filter(m => m.supportedGenerationMethods.includes("generateContent"));
-                
-                // Prioridade de escolha: flash -> pro -> qualquer outro gemini
-                let best = validModels.find(m => m.name.includes("gemini-1.5-flash"));
-                if (!best) best = validModels.find(m => m.name.includes("gemini-1.5-pro"));
-                if (!best) best = validModels.find(m => m.name.includes("gemini-pro"));
-                if (!best && validModels.length > 0) best = validModels[0]; // Pega o primeiro genérico
-
-                if (best) {
-                    // O Google retorna o nome com 'models/' na frente, a gente usa isso direto na URL
-                    modelToUse = best.name.split('/').pop(); 
-                    logDebug(`[Discovery] Sucesso! Modelo selecionado: ${modelToUse}`, 'match');
-                }
-            }
-        } catch (e) {
-            logDebug(`[Discovery Falhou] Erro de rede: ${e.message}`, 'error');
-            return null;
-        }
-
-        if (!modelToUse) {
-            logDebug(`[Aviso Crítico] Sua chave é válida, mas o projeto no Google Cloud não tem permissão para usar nenhum modelo Gemini.`, 'error');
-            return null;
-        }
-
-        // 2. Fase de Extração: Agora que sabemos qual modelo funciona, mandamos o texto
+    // --- CÉREBRO DA IA DEEPSEEK ---
+    async function getNamesFromIA(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
 Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
 
@@ -313,29 +273,36 @@ REGRAS ABSOLUTAS:
 4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS FÍSICAS DA PÁGINA. NÃO RESUMA! 
 
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown.
-Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
+Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-Texto Extraído:
-${textoDaPagina}`;
-
-        logDebug(`[IA] Enviando texto para o modelo ${modelToUse}...`, 'info');
+        logDebug(`[IA] Enviando texto para a API DeepSeek...`, 'info');
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`, {
+            // Chamada padrão compativel com a API OpenAI (usada pelo DeepSeek)
+            const response = await fetch('https://api.deepseek.com/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: prompt },
+                        { role: 'user', content: `Texto Extraído:\n${textoDaPagina}` }
+                    ],
+                    temperature: 0.1 // Temperatura baixa para evitar invenções
                 })
             });
+
             const data = await response.json();
 
             if (data.error) {
-                logDebug(`[Erro de Extração] ${data.error.message}`, 'error');
+                logDebug(`[Erro API DeepSeek] ${data.error.message}`, 'error');
                 return null;
             }
 
-            if (data.candidates && data.candidates[0].content.parts[0].text) {
-                let responseText = data.candidates[0].content.parts[0].text.trim();
+            if (data.choices && data.choices[0].message && data.choices[0].message.content) {
+                let responseText = data.choices[0].message.content.trim();
                 let jsonMatch = responseText.match(/\[.*\]/s);
                 if (jsonMatch) {
                     return JSON.parse(jsonMatch[0]);
@@ -344,7 +311,7 @@ ${textoDaPagina}`;
                 }
             }
         } catch (e) {
-            logDebug(`[Erro na Extração] Falha ao processar o texto: ${e.message}`, "error");
+            logDebug(`[Erro na Extração] Falha de rede: ${e.message}`, "error");
         }
         
         return null;
@@ -358,12 +325,12 @@ ${textoDaPagina}`;
     ];
 
     document.getElementById('btn-auto-scan').onclick = async function() {
-        const apiKey = document.getElementById('gemini-api-key').value.trim();
+        const apiKey = document.getElementById('deepseek-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API do Google Gemini no campo roxo acima.");
+            alert("Atenção! Cole a sua Chave da API do DeepSeek no campo indicado.");
             return;
         }
-        localStorage.setItem('lgpd_gemini_api_key', apiKey);
+        localStorage.setItem('lgpd_deepseek_api_key', apiKey);
 
         const btn = this;
         const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -503,15 +470,15 @@ ${textoDaPagina}`;
                     });
 
                     // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
-                    scanStatus.innerText = `Consultando IA na Pág. ${i}...`;
-                    const nomesIA = await discoverAndExtractNames(textoIntegralDaPagina, apiKey);
+                    scanStatus.innerText = `Consultando IA DeepSeek na Pág. ${i}...`;
+                    const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
                     
                     if (nomesIA && Array.isArray(nomesIA)) {
                         nomesIA.forEach(nome => {
                             let cleanNome = nome.toUpperCase().trim();
                             
                             if(cleanNome.split(/\s+/).length > 1) {
-                                logDebug(`[IA] Pessoa Encontrada: ${cleanNome}`, 'suspect');
+                                logDebug(`[IA DeepSeek] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
                                 linhasObj.forEach(linha => {
                                     let idx = removeAcentos(linha.texto).toUpperCase().indexOf(removeAcentos(cleanNome));
@@ -547,8 +514,7 @@ ${textoDaPagina}`;
                             }
                         });
                     } else if (nomesIA === null) {
-                        // Se retornou null, a chave falhou no discovery geral. Aborta a varredura das outras páginas.
-                        alert("Não foi possível acessar a IA. Verifique as configurações da sua chave no painel do Google Cloud.");
+                        alert("A chave informada foi rejeitada pelo DeepSeek. Verifique o console.");
                         btn.style.display = "block";
                         scanContainer.style.display = "none";
                         return;
