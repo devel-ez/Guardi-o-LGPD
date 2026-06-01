@@ -133,7 +133,6 @@
         if (loader) loader.remove();
     };
 
-    // FUNÇÃO ATUALIZADA: MUDANÇA PARA O CDNJS (Cloudflare) PARA EVITAR O ERRO 404 DO UNPKG
     async function carregarDependencias() {
         try {
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
@@ -264,7 +263,7 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- O CÉREBRO DA IA GEMINI (COM ANTI-TRUNCAMENTO) ---
+    // --- O CÉREBRO DA IA GEMINI (COM CORREÇÃO DE MODELO) ---
     async function getNamesFromGemini(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
 Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
@@ -294,13 +293,13 @@ ${textoDaPagina}`;
         };
 
         try {
-            // Tenta o modelo flash-latest
-            let data = await callGoogleApi('gemini-1.5-flash-latest');
+            // Usa o modelo base 'gemini-1.5-flash'
+            let data = await callGoogleApi('gemini-1.5-flash');
             
-            // Fallback se a chave estiver configurada para pro-latest
+            // Fallback se a chave estiver configurada especificamente para o pro
             if (data.error && data.error.code === 404) {
-                logDebug(`[Aviso API] Modelo flash-latest não encontrado. Tentando pro-latest...`, 'skip');
-                data = await callGoogleApi('gemini-1.5-pro-latest');
+                logDebug(`[Aviso API] Modelo flash não encontrado. Tentando pro...`, 'skip');
+                data = await callGoogleApi('gemini-1.5-pro');
             }
 
             if (data.error) {
@@ -329,7 +328,7 @@ ${textoDaPagina}`;
     document.getElementById('btn-auto-scan').onclick = async function() {
         const apiKey = document.getElementById('gemini-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API do Google Gemini no campo roxo acima para a IA funcionar.");
+            alert("Atenção! Você precisa colar sua Chave API do Gemini no campo indicado para usar a Inteligência Artificial.");
             return;
         }
         localStorage.setItem('lgpd_gemini_api_key', apiKey);
@@ -435,21 +434,18 @@ ${textoDaPagina}`;
                                     while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
                                     
                                     if (startIndex <= endIndex) {
-                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
-                                        let h_font = 10;
-
+                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1, scale: viewport.scale};
                                         if (linha.charMap[startIndex].item.transform) {
                                             const first = linha.charMap[startIndex].item;
                                             const last = linha.charMap[endIndex].item;
                                             const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                             const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                             bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0; 
-                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                            h_font = fs * viewport.scale;
+                                            bbox.fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
                                         } else {
                                             const item = linha.charMap[startIndex].item;
                                             bbox.x0 = item.bbox.x0; bbox.y0 = item.bbox.y1; bbox.x1 = item.bbox.x1; bbox.y1 = item.bbox.y1;
-                                            h_font = item.bbox.y1 - item.bbox.y0;
+                                            bbox.fs = (item.bbox.y1 - item.bbox.y0) / viewport.scale;
                                         }
 
                                         let isAss = (regObj.tipo === 'ass');
@@ -458,9 +454,9 @@ ${textoDaPagina}`;
 
                                         if (isAss) {
                                             if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
-                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
+                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max((bbox.fs * viewport.scale) + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
                                         } else {
-                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
+                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max((bbox.fs * viewport.scale) + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
 
                                         injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
