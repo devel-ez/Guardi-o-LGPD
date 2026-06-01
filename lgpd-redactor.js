@@ -30,14 +30,14 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
 
-    // 2. Painel Lateral UI (Groq Version)
+    // 2. Painel Lateral UI
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
         <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">⚡ GROQ GUARDIÃO (LLama 3)</span>
+            <span style="font-weight:bold;font-size:14px;">⚡ GROQ GUARDIÃO (LLama 3.3)</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
@@ -260,9 +260,8 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA GROQ (Llama 3 70B) ---
+    // --- CÉREBRO DA IA GROQ (FALLBACK DE MODELOS LLAMA 3) ---
     async function getNamesFromIA(textoDaPagina, apiKey) {
-        // Blindagem do Prompt para evitar que ele pegue cabeçalhos e siglas da tabela
         const prompt = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
 Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
 
@@ -277,44 +276,50 @@ REGRAS ABSOLUTAS SOB PENA DE FALHA:
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-        logDebug(`[IA] Enviando texto para a API Groq (Llama 3 70B)...`, 'info');
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'llama3-70b-8192',
-                    messages: [
-                        { role: 'system', content: prompt },
-                        { role: 'user', content: `Texto Extraído da Página:\n\n${textoDaPagina}` }
-                    ],
-                    temperature: 0.1 
-                })
-            });
+        // Matriz de modelos atualizada da Groq (Deixa tentar o mais forte e desce pro mais rápido)
+        const modelosGroq = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.1-8b-instant'];
 
-            const data = await response.json();
+        for (let modelName of modelosGroq) {
+            logDebug(`[IA] Conectando ao modelo Groq: ${modelName}...`, 'info');
+            try {
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [
+                            { role: 'system', content: prompt },
+                            { role: 'user', content: `Texto Extraído da Página:\n\n${textoDaPagina}` }
+                        ],
+                        temperature: 0.1 
+                    })
+                });
 
-            if (data.error) {
-                logDebug(`[Erro API Groq] ${data.error.message}`, 'error');
-                return null;
-            }
+                const data = await response.json();
 
-            if (data.choices && data.choices[0].message && data.choices[0].message.content) {
-                let responseText = data.choices[0].message.content.trim();
-                let jsonMatch = responseText.match(/\[.*\]/s);
-                if (jsonMatch) {
-                    return JSON.parse(jsonMatch[0]);
-                } else {
-                    return JSON.parse(responseText); 
+                if (data.error) {
+                    logDebug(`[Aviso API Groq - ${modelName}] ${data.error.message}`, 'skip');
+                    continue; // Erro no modelo (ex: descontinuado), tenta o próximo do array
                 }
+
+                if (data.choices && data.choices[0].message && data.choices[0].message.content) {
+                    let responseText = data.choices[0].message.content.trim();
+                    let jsonMatch = responseText.match(/\[.*\]/s);
+                    if (jsonMatch) {
+                        return JSON.parse(jsonMatch[0]);
+                    } else {
+                        return JSON.parse(responseText); 
+                    }
+                }
+            } catch (e) {
+                logDebug(`[Erro de Rede - ${modelName}] ${e.message}`, "error");
             }
-        } catch (e) {
-            logDebug(`[Erro na Extração] Falha de rede: ${e.message}`, "error");
         }
         
+        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos. Verifique a chave.`, "error");
         return null;
     }
 
@@ -328,7 +333,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
     document.getElementById('btn-auto-scan').onclick = async function() {
         const apiKey = document.getElementById('groq-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API do Groq no campo indicado.");
+            alert("Atenção! Cole a sua Chave da API da Groq no campo indicado.");
             return;
         }
         localStorage.setItem('lgpd_groq_api_key', apiKey);
@@ -479,12 +484,10 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                             if(cleanNome.split(/\s+/).length > 1) {
                                 logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
-                                // Correção Mestra de Mapeamento: Evitar sobreposições e limites bizarros
                                 linhasObj.forEach(linha => {
                                     let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
                                     let nomeSearch = removeAcentos(cleanNome);
                                     
-                                    // Procura todas as ocorrências do nome na mesma linha
                                     let idx = textoLinhaLimpo.indexOf(nomeSearch);
                                     while (idx !== -1) {
                                         if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
@@ -514,14 +517,13 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                                             });
                                         }
                                         
-                                        // Pula para a próxima ocorrência na linha, se houver
                                         idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
                                     }
                                 });
                             }
                         });
                     } else if (nomesIA === null) {
-                        alert("A chave informada foi rejeitada pelo Groq. Verifique a internet e o console de rastreio.");
+                        alert("A chave informada foi rejeitada pela Groq. Verifique a internet e o console de rastreio.");
                         btn.style.display = "block";
                         scanContainer.style.display = "none";
                         return;
