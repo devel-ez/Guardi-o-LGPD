@@ -260,7 +260,7 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA GROQ (FALLBACK DE MODELOS LLAMA 3) ---
+    // --- CÉREBRO DA IA GROQ (FALLBACK DE MODELOS LLAMA 3 ATUALIZADO) ---
     async function getNamesFromIA(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
 Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
@@ -276,8 +276,12 @@ REGRAS ABSOLUTAS SOB PENA DE FALHA:
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-        // Matriz de modelos atualizada da Groq (Deixa tentar o mais forte e desce pro mais rápido)
-        const modelosGroq = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.1-8b-instant'];
+        // Matriz atualizada: Do modelo Llama 3.3 Versatile até os modelos mais estáveis.
+        const modelosGroq = [
+            'llama-3.3-70b-versatile', 
+            'llama-3.1-8b-instant', 
+            'mixtral-8x7b-32768'
+        ];
 
         for (let modelName of modelosGroq) {
             logDebug(`[IA] Conectando ao modelo Groq: ${modelName}...`, 'info');
@@ -319,7 +323,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
             }
         }
         
-        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos. Verifique a chave.`, "error");
+        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos da matriz de fallback.`, "error");
         return null;
     }
 
@@ -333,7 +337,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
     document.getElementById('btn-auto-scan').onclick = async function() {
         const apiKey = document.getElementById('groq-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API da Groq no campo indicado.");
+            alert("Atenção! Cole a sua Chave da API do Groq no campo indicado.");
             return;
         }
         localStorage.setItem('lgpd_groq_api_key', apiKey);
@@ -484,6 +488,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                             if(cleanNome.split(/\s+/).length > 1) {
                                 logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
+                                // Correção Mestra de Mapeamento
                                 linhasObj.forEach(linha => {
                                     let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
                                     let nomeSearch = removeAcentos(cleanNome);
