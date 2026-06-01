@@ -1,15 +1,15 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Agora com tema DeepSeek)
+    // 1. Estilos (Tema Groq)
     const style = document.createElement('style');
     style.innerHTML = `
-        .lgpd-dropzone.dragover { background: #dbeafe !important; border-color: #2563eb !important; }
+        .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
         .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 2147483647 !important; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
-        .lgpd-progress-fill { height: 100%; background: #2563eb; transition: width 0.1s ease; border-radius: 4px; }
+        .lgpd-progress-fill { height: 100%; background: #f43f5e; transition: width 0.1s ease; border-radius: 4px; }
         .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
@@ -30,21 +30,21 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
 
-    // 2. Painel Lateral UI (DeepSeek Version)
+    // 2. Painel Lateral UI (Groq Version)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
-        <div style="background:#0f172a;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">🐋 DEEPSEEK GUARDIÃO</span>
+        <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
+            <span style="font-weight:bold;font-size:14px;">⚡ GROQ GUARDIÃO (LLama 3)</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             
-            <div style="background:#e0f2fe; border:1px solid #bae6fd; padding:10px; border-radius:6px; font-size:11px; color:#0369a1;">
-                <b>Conexão DeepSeek AI:</b> Cole sua chave API (sk-...). O sistema salvará ela no seu navegador para as próximas vezes.
-                <input type="password" id="deepseek-api-key" placeholder="Cole a Chave da API aqui (sk-...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #bae6fd; border-radius:4px; font-size:11px;" />
+            <div style="background:#fff1f2; border:1px solid #fecdd3; padding:10px; border-radius:6px; font-size:11px; color:#be123c;">
+                <b>Conexão Groq AI (100% Grátis):</b> Cole sua chave API (gsk_...).
+                <input type="password" id="groq-api-key" placeholder="Cole a Chave da API aqui (gsk_...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #fecdd3; border-radius:4px; font-size:11px;" />
             </div>
 
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
@@ -57,22 +57,22 @@
                     <span id="lgpd-load-status">Processando...</span>
                     <span id="lgpd-load-percent">0%</span>
                 </div>
-                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#2563eb;"></div></div>
+                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#f43f5e;"></div></div>
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">✨ 1. Analisar com IA DeepSeek</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(244, 63, 94, 0.3);">🚀 1. Analisar com IA Groq</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
                         <span id="lgpd-scan-status">Iniciando IA...</span>
                         <span id="lgpd-scan-percent">0%</span>
                     </div>
-                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#2563eb;"></div></div>
+                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#f43f5e;"></div></div>
                 </div>
 
                 <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
-                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 DeepSeek Encontrou (Marque as Pessoas Físicas):</span>
+                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 IA Encontrou (Marque as Pessoas Físicas):</span>
                     <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
                     <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
                 </div>
@@ -88,9 +88,8 @@
     `;
     document.body.appendChild(root);
 
-    // Carrega chave salva
-    const savedKey = localStorage.getItem('lgpd_deepseek_api_key');
-    if (savedKey) document.getElementById('deepseek-api-key').value = savedKey;
+    const savedKey = localStorage.getItem('lgpd_groq_api_key');
+    if (savedKey) document.getElementById('groq-api-key').value = savedKey;
 
     const workspace = document.createElement('div');
     workspace.id = 'lgpd-canvas-workspace';
@@ -103,7 +102,7 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
-            if (tipo === 'suspect') cor = '#60a5fa'; // Azul claro para DeepSeek
+            if (tipo === 'suspect') cor = '#fb7185'; 
             if (tipo === 'skip') cor = '#94a3b8';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
@@ -261,43 +260,45 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA DEEPSEEK ---
+    // --- CÉREBRO DA IA GROQ (Llama 3 70B) ---
     async function getNamesFromIA(textoDaPagina, apiKey) {
-        const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
-Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
+        // Blindagem do Prompt para evitar que ele pegue cabeçalhos e siglas da tabela
+        const prompt = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
+Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
 
-REGRAS ABSOLUTAS:
-1. NÃO inclua patentes militares junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
-2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas.
-3. Copie o nome EXATAMENTE como aparece na página.
-4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS FÍSICAS DA PÁGINA. NÃO RESUMA! 
+REGRAS ABSOLUTAS SOB PENA DE FALHA:
+1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela, palavras isoladas ou identificadores de colunas (Exemplos do que NÃO extrair: "NOME", "POSTO", "A/Q/SV", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA").
+2. É ESTRITAMENTE PROIBIDO extrair siglas de especialidades militares (Exemplos do que NÃO extrair: "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", "QEMEL", "QEMFC").
+3. NÃO inclua a patente junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
+4. NÃO inclua empresas (LTDA, ME), órgãos públicos, batalhões ou secretarias.
+5. Copie o nome de pessoa física EXATAMENTE como aparece no texto lido pelo OCR.
+6. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
 
-Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown.
+Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-        logDebug(`[IA] Enviando texto para a API DeepSeek...`, 'info');
+        logDebug(`[IA] Enviando texto para a API Groq (Llama 3 70B)...`, 'info');
         try {
-            // Chamada padrão compativel com a API OpenAI (usada pelo DeepSeek)
-            const response = await fetch('https://api.deepseek.com/chat/completions', {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: 'deepseek-chat',
+                    model: 'llama3-70b-8192',
                     messages: [
                         { role: 'system', content: prompt },
-                        { role: 'user', content: `Texto Extraído:\n${textoDaPagina}` }
+                        { role: 'user', content: `Texto Extraído da Página:\n\n${textoDaPagina}` }
                     ],
-                    temperature: 0.1 // Temperatura baixa para evitar invenções
+                    temperature: 0.1 
                 })
             });
 
             const data = await response.json();
 
             if (data.error) {
-                logDebug(`[Erro API DeepSeek] ${data.error.message}`, 'error');
+                logDebug(`[Erro API Groq] ${data.error.message}`, 'error');
                 return null;
             }
 
@@ -317,7 +318,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
         return null;
     }
 
-    // Regras Matemáticas Seguras (O que não for nome)
+    // Regras Matemáticas Seguras
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
@@ -325,12 +326,12 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
     ];
 
     document.getElementById('btn-auto-scan').onclick = async function() {
-        const apiKey = document.getElementById('deepseek-api-key').value.trim();
+        const apiKey = document.getElementById('groq-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API do DeepSeek no campo indicado.");
+            alert("Atenção! Cole a sua Chave da API do Groq no campo indicado.");
             return;
         }
-        localStorage.setItem('lgpd_deepseek_api_key', apiKey);
+        localStorage.setItem('lgpd_groq_api_key', apiKey);
 
         const btn = this;
         const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -342,7 +343,6 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
         document.getElementById('lgpd-debug-log').style.display = 'block';
         
         mapNomesSuspeitos.clear();
-        let tarjasAutoDetectadas = 0;
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
@@ -425,7 +425,6 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
                                 if (!hasOverlap) {
                                     logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                    tarjasAutoDetectadas++;
                                     
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + cleanStr.length - 1;
@@ -470,7 +469,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                     });
 
                     // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
-                    scanStatus.innerText = `Consultando IA DeepSeek na Pág. ${i}...`;
+                    scanStatus.innerText = `Consultando IA Groq na Pág. ${i}...`;
                     const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
                     
                     if (nomesIA && Array.isArray(nomesIA)) {
@@ -478,11 +477,16 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                             let cleanNome = nome.toUpperCase().trim();
                             
                             if(cleanNome.split(/\s+/).length > 1) {
-                                logDebug(`[IA DeepSeek] Pessoa Encontrada: ${cleanNome}`, 'suspect');
+                                logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
+                                // Correção Mestra de Mapeamento: Evitar sobreposições e limites bizarros
                                 linhasObj.forEach(linha => {
-                                    let idx = removeAcentos(linha.texto).toUpperCase().indexOf(removeAcentos(cleanNome));
-                                    if(idx !== -1) {
+                                    let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
+                                    let nomeSearch = removeAcentos(cleanNome);
+                                    
+                                    // Procura todas as ocorrências do nome na mesma linha
+                                    let idx = textoLinhaLimpo.indexOf(nomeSearch);
+                                    while (idx !== -1) {
                                         if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
                                         
                                         let start = idx; let end = idx + cleanNome.length - 1;
@@ -509,12 +513,15 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                                                 w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
                                             });
                                         }
+                                        
+                                        // Pula para a próxima ocorrência na linha, se houver
+                                        idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
                                     }
                                 });
                             }
                         });
                     } else if (nomesIA === null) {
-                        alert("A chave informada foi rejeitada pelo DeepSeek. Verifique o console.");
+                        alert("A chave informada foi rejeitada pelo Groq. Verifique a internet e o console de rastreio.");
                         btn.style.display = "block";
                         scanContainer.style.display = "none";
                         return;
