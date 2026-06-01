@@ -43,8 +43,8 @@
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             
             <div style="background:#f3e8ff; border:1px solid #d8b4fe; padding:10px; border-radius:6px; font-size:11px; color:#6b21a8;">
-                <b>Conexão Google Gemini:</b> Cole sua chave API. O sistema salvará ela no seu navegador para as próximas vezes.
-                <input type="password" id="gemini-api-key" placeholder="Cole a Chave da API aqui (AIzaSy...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #d8b4fe; border-radius:4px; font-size:11px;" />
+                <b>Conexão Google Gemini:</b> Cole sua chave API (Pode ser o formato novo AQ...).
+                <input type="password" id="gemini-api-key" placeholder="Cole a Chave da API aqui..." style="width:100%; margin-top:5px; padding:6px; border:1px solid #d8b4fe; border-radius:4px; font-size:11px;" />
             </div>
 
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
@@ -88,6 +88,7 @@
     `;
     document.body.appendChild(root);
 
+    // Carrega chave salva
     const savedKey = localStorage.getItem('lgpd_gemini_api_key');
     if (savedKey) document.getElementById('gemini-api-key').value = savedKey;
 
@@ -137,8 +138,8 @@
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
         } catch (err) {
-            logDebug("Erro fatal ao carregar bibliotecas.", 'error');
-            alert("Erro ao carregar as bibliotecas. Tente dar um CTRL+F5.");
+            logDebug("Erro ao carregar bibliotecas.", 'error');
+            alert("Erro ao carregar as bibliotecas do CDN. Verifique a internet e tente CTRL+F5.");
         }
     }
 
@@ -260,72 +261,70 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA (SISTEMA DE FALLBACK UNIVERSAL) ---
+    // --- CÉREBRO DA IA GEMINI (O "ARRASTÃO" DE MODELOS UNIVERSAL) ---
     async function getNamesFromGemini(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de LGPD atuando em documentos militares (Exército) e Licitações.
 Sua única função é extrair Nomes Próprios completos de PESSOAS FÍSICAS reais.
 
 REGRAS ABSOLUTAS:
-1. NÃO inclua patentes militares (Ex: "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
-2. NÃO inclua empresas, órgãos públicos, batalhões ou siglas.
-3. Copie o nome EXATAMENTE como aparece no texto (mesmo se o OCR tiver lido errado com caracteres estranhos).
-4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. Não assuma que a lista terminou.
+1. NÃO inclua patentes militares junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
+2. NÃO inclua empresas, órgãos públicos, batalhões, secretarias, ou siglas.
+3. Copie o nome EXATAMENTE como aparece.
+4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS FÍSICAS DA PÁGINA. NÃO RESUMA! Se houver 50 ou 100 nomes na lista, você DEVE retornar todos eles obrigatoriamente. 
 
-Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown.
+Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva mais nada, apenas o Array.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]
 
 Texto Extraído:
 ${textoDaPagina}`;
 
-        // Arrastão de modelos: Do mais moderno ao mais universal (1.0)
-        const modelosParaTestar = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+        // A grande jogada: Tentar do modelo mais novo até o mais básico, sem exigir parâmetro JSON
+        const modelosParaTestar = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'];
 
         for (let modelName of modelosParaTestar) {
-            logDebug(`[IA] Conectando ao modelo: ${modelName}...`, 'info');
+            logDebug(`[IA] Tentando conectar no modelo: ${modelName}...`, 'info');
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // Remover 'generationConfig' para não quebrar a versão universal (gemini-pro)
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
+                        contents: [{ parts: [{ text: prompt }] }] // Sem generationConfig para não bugar a versão 1.0
                     })
                 });
                 const data = await response.json();
 
                 if (data.error) {
                     if (data.error.code === 404) {
-                        logDebug(`[Aviso] Modelo ${modelName} não habilitado na sua Chave API.`, 'skip');
-                        continue; // Falhou, pula pro próximo modelo
+                        logDebug(`[Aviso API] Modelo ${modelName} não encontrado para essa chave.`, 'skip');
+                        continue; // Pula pro próximo
                     } else {
-                        logDebug(`[Erro Google] ${data.error.message}`, 'error');
-                        return []; 
+                        logDebug(`[Erro API Google] ${data.error.message}`, 'error');
+                        return [];
                     }
                 }
 
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     let responseText = data.candidates[0].content.parts[0].text.trim();
-                    // Limpar formatação Markdown caso a IA retorne
-                    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
                     
-                    try {
-                        return JSON.parse(responseText);
-                    } catch(err) {
-                        logDebug(`[Erro de Formatação] A IA não retornou um JSON válido.`, 'error');
-                        return [];
+                    // Extrair o array JSON de dentro do retorno
+                    let jsonMatch = responseText.match(/\[.*\]/s);
+                    if (jsonMatch) {
+                        return JSON.parse(jsonMatch[0]);
+                    } else {
+                        return JSON.parse(responseText); 
                     }
                 }
             } catch (e) {
-                logDebug(`[Falha de Rede] Erro com ${modelName}: ${e.message}`, "error");
+                logDebug(`[Erro] Falha ao processar a resposta do modelo ${modelName}.`, "error");
             }
         }
         
-        logDebug(`[ERRO CRÍTICO] Nenhum modelo da IA está liberado ou acessível com esta Chave API.`, 'error');
-        alert("O Google rejeitou o acesso à IA com essa chave. Verifique o log de rastreio.");
+        logDebug(`[ERRO CRÍTICO] Nenhum modelo da API está liberado para essa chave no momento.`, 'error');
+        alert("Erro de permissão no Google. Nenhum modelo foi encontrado para sua chave API. Consulte o console.");
         return [];
     }
 
-    // Regras Matemáticas para Dados Estruturados
+    // Regras Matemáticas Seguras (O que não for nome)
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
@@ -354,7 +353,7 @@ ${textoDaPagina}`;
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
-            logDebug("\n[INÍCIO] Mapeamento Híbrido Iniciado.");
+            logDebug("\n[INÍCIO] IA Gemini Acionada.");
 
             for (let i = 1; i <= totalPages; i++) {
                 scanStatus.innerText = `Processando Pág. ${i}/${totalPages}...`;
@@ -414,7 +413,7 @@ ${textoDaPagina}`;
                         });
                     }
 
-                    // AUTO-TARJA MATEMÁTICA
+                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -441,29 +440,31 @@ ${textoDaPagina}`;
                                     while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
                                     
                                     if (startIndex <= endIndex) {
-                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1, scale: viewport.scale};
+                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                        let h_font = 10;
+
                                         if (linha.charMap[startIndex].item.transform) {
                                             const first = linha.charMap[startIndex].item;
                                             const last = linha.charMap[endIndex].item;
                                             const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
                                             const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
                                             bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0; 
-                                            bbox.fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            h_font = fs * viewport.scale;
                                         } else {
                                             const item = linha.charMap[startIndex].item;
                                             bbox.x0 = item.bbox.x0; bbox.y0 = item.bbox.y1; bbox.x1 = item.bbox.x1; bbox.y1 = item.bbox.y1;
-                                            bbox.fs = (item.bbox.y1 - item.bbox.y0) / viewport.scale;
+                                            h_font = item.bbox.y1 - item.bbox.y0;
                                         }
 
                                         let isAss = (regObj.tipo === 'ass');
-                                        let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
                                         let w_val, h_val, finalX, finalY;
 
+                                        // Ajuste da explosão para focar no centro da assinatura
                                         if (isAss) {
-                                            if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
-                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max((bbox.fs * viewport.scale) + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
+                                            w_val = 240; h_val = 80; finalX = bbox.x0 - 100; finalY = bbox.y0 - 20;
                                         } else {
-                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max((bbox.fs * viewport.scale) + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
+                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
 
                                         injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
@@ -474,7 +475,7 @@ ${textoDaPagina}`;
                         });
                     });
 
-                    // A IA LÊ O TEXTO DA PÁGINA
+                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
                     scanStatus.innerText = `Consultando IA na Pág. ${i}...`;
                     const nomesIA = await getNamesFromGemini(textoIntegralDaPagina, apiKey);
                     
@@ -483,7 +484,7 @@ ${textoDaPagina}`;
                             let cleanNome = nome.toUpperCase().trim();
                             
                             if(cleanNome.split(/\s+/).length > 1) {
-                                logDebug(`[IA Gemini] Encontrou: ${cleanNome}`, 'suspect');
+                                logDebug(`[IA] Pessoa Encontrada: ${cleanNome}`, 'suspect');
                                 
                                 linhasObj.forEach(linha => {
                                     let idx = removeAcentos(linha.texto).toUpperCase().indexOf(removeAcentos(cleanNome));
@@ -524,7 +525,7 @@ ${textoDaPagina}`;
             
             scanContainer.style.display = "none";
             
-            // MONTAGEM DO PAINEL
+            // MONTAGEM DO PAINEL DE REVISÃO HUMANA
             const painelRevisao = document.getElementById('painel-revisao-nomes');
             const divLista = document.getElementById('lista-nomes-suspeitos');
             divLista.innerHTML = ''; 
@@ -546,7 +547,7 @@ ${textoDaPagina}`;
                 });
                 
                 painelRevisao.style.display = 'flex';
-                logDebug(`\n[FIM] ${mapNomesSuspeitos.size} nomes processados e aguardando revisão.`, 'info');
+                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} pessoas para revisão.`);
                 alert(`Leitura IA Concluída!\n\nDocumentos e Assinaturas foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\n\nRevise a lista no painel direito, desmarque quem NÃO deve ser tarjado e clique em "Aplicar Tarjas".`);
             } else {
                 alert("Mapeamento concluído. A IA não localizou Nomes Próprios na página.");
@@ -576,7 +577,7 @@ ${textoDaPagina}`;
             }
         });
         
-        logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas.`, 'match');
+        logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas.`);
         document.getElementById('painel-revisao-nomes').style.display = 'none';
         document.getElementById('btn-auto-scan').style.display = 'block';
         alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
