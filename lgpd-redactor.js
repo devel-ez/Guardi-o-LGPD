@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // ==================== ESTILOS ====================
+    // ==================== ESTILOS (com cursor de adição) ====================
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
@@ -21,6 +21,7 @@
         .lgpd-name-item:hover { background: #f8fafc; }
         #lgpd-debug-log::-webkit-scrollbar, .lgpd-name-list::-webkit-scrollbar { width: 6px; }
         #lgpd-debug-log::-webkit-scrollbar-thumb, .lgpd-name-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .modo-adicionar-tarja { cursor: crosshair !important; }
     `;
     document.head.appendChild(style);
 
@@ -30,7 +31,8 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
     let isScanning = false;
-    let todasTarjas = []; // Armazena todas as tarjas criadas para verificar sobreposição
+    let todasTarjas = [];
+    let modoAdicionarTarja = false; // Controle do modo manual
 
     // ==================== PAINEL LATERAL ====================
     const root = document.createElement('div');
@@ -59,7 +61,8 @@
                 <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#f43f5e;"></div></div>
             </div>
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(244, 63, 94, 0.3);">🚀 1. Analisar com IA Groq</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">🚀 1. Analisar com IA Groq</button>
+                <button id="btn-add-manual" style="width:100%;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">➕ Adicionar Tarja Manual</button>
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
                         <span id="lgpd-scan-status">Iniciando IA...</span>
@@ -139,8 +142,9 @@
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
+            logDebug("Todas as bibliotecas carregadas com sucesso.");
         } catch (err) {
-            logDebug("Erro ao carregar bibliotecas.", 'error');
+            logDebug("Erro ao carregar bibliotecas: " + err.message, 'error');
             alert("Erro ao carregar as bibliotecas do CDN. Verifique a internet e tente CTRL+F5.");
         }
     }
@@ -178,6 +182,8 @@
         todasTarjas = [];
         if(objectUrl) URL.revokeObjectURL(objectUrl);
         fileInput.value = ""; 
+        modoAdicionarTarja = false;
+        document.body.classList.remove('modo-adicionar-tarja');
     };
 
     async function processarArquivo(file) {
@@ -195,7 +201,8 @@
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
             await renderizarDocumento(loadContainer);
         } catch (err) {
-            logDebug("Falha ao abrir PDF.", 'error');
+            logDebug("Falha ao abrir PDF: " + err.message, 'error');
+            alert("Não foi possível carregar o PDF. Verifique o console para mais detalhes.");
         }
     }
 
@@ -232,9 +239,9 @@
         }
         loadContainer.style.display = 'none';
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
+        logDebug(`PDF renderizado com ${totalPages} página(s).`);
     }
 
-    // Função para verificar sobreposição de tarjas
     function isOverlapping(pageContainer, left, top, width, height, margin = 10) {
         const existingTarjas = pageContainer.querySelectorAll('.tarja-lgpd-custom');
         for (let tarja of existingTarjas) {
@@ -253,16 +260,10 @@
         return false;
     }
 
-    // Função para limpar nome (remover pontuação e tentar separar nomes colados)
     function limparNome(nome) {
         if (!nome) return nome;
-        
-        // Remove pontuação no final
         let limpo = nome.replace(/[,;.:!?]+$/, '').trim();
-        
-        // Tenta separar nomes colados comuns
         const nomesComuns = ['MALAQUIAS', 'HENRIQUE', 'AUGUSTO', 'ANTONIO', 'JOAO', 'JOSE', 'MARIA', 'PEDRO', 'PAULO', 'CARLOS', 'ROBERTO', 'RAFAEL', 'GABRIEL', 'LUCAS', 'FELIPE', 'GUSTAVO', 'DANIEL', 'MARCOS', 'ANDRE', 'RICARDO', 'RODRIGO', 'FERNANDO', 'EDUARDO', 'VICTOR', 'VINICIUS'];
-        
         for (let nomeComum of nomesComuns) {
             const regex = new RegExp(`([A-Z]{2,})(${nomeComum})([A-Z])`, 'i');
             if (regex.test(limpo)) {
@@ -270,22 +271,22 @@
                 break;
             }
         }
-        
         return limpo;
     }
 
-    // Função para calcular coordenadas da tarja com validação de limites
     function calcularCoordenadasTarja(bboxConvertido, h_font, pageContainer, tipo = 'texto') {
+        if (!pageContainer || pageContainer.offsetWidth === 0 || pageContainer.offsetHeight === 0) {
+            logDebug("Aviso: pageContainer com dimensões inválidas, usando fallback.", 'error');
+            return { w: '100px', h: '30px', left: '10px', top: '10px', wRaw: 100, hRaw: 30 };
+        }
         let w = Math.max(bboxConvertido.x1 - bboxConvertido.x0 + 10, 30);
         let h = tipo === 'assinatura' ? Math.max(h_font + 30, 60) : Math.max(h_font + 8, 16);
         let left = bboxConvertido.x0 - 5;
         let top = bboxConvertido.y0 - h + 2;
         
-        // Valida limites
         left = Math.max(0, left);
         top = Math.max(0, top);
         
-        // Garante que não ultrapassa os limites da página
         const maxLeft = pageContainer.offsetWidth - w;
         const maxTop = pageContainer.offsetHeight - h;
         if (left > maxLeft) left = maxLeft;
@@ -295,7 +296,10 @@
     }
 
     function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false, tipo = 'texto') {
-        // Verifica sobreposição
+        if (!pageContainer) {
+            logDebug("Erro: pageContainer inválido para injetar tarja.", 'error');
+            return null;
+        }
         if (isOverlapping(pageContainer, parseFloat(left), parseFloat(top), parseFloat(w), parseFloat(h))) {
             logDebug(`Tarja ignorada (sobreposição): ${left}, ${top}`, 'skip');
             return null;
@@ -328,6 +332,8 @@
             btnRemove.onclick = (e) => {
                 e.stopPropagation();
                 tarja.remove();
+                const index = todasTarjas.indexOf(tarja);
+                if (index > -1) todasTarjas.splice(index, 1);
             };
         }
         tarja.style.width = w;
@@ -335,10 +341,84 @@
         tarja.style.top = top;
         tarja.style.left = left;
         pageContainer.appendChild(tarja);
-        
         todasTarjas.push(tarja);
+        
+        // Suporte a redimensionamento (já incluso pelo CSS resize:both)
         return tarja;
     }
+
+    // Função para criar tarja manual na posição do clique
+    function iniciarModoAdicionarTarja() {
+        if (modoAdicionarTarja) {
+            // Desativa o modo
+            modoAdicionarTarja = false;
+            document.body.classList.remove('modo-adicionar-tarja');
+            logDebug("Modo adicionar tarja desativado.");
+            const btn = document.getElementById('btn-add-manual');
+            if (btn) btn.style.background = "#8b5cf6";
+        } else {
+            modoAdicionarTarja = true;
+            document.body.classList.add('modo-adicionar-tarja');
+            logDebug("Modo adicionar tarja ativado. Clique em qualquer página do PDF para criar uma tarja.");
+            const btn = document.getElementById('btn-add-manual');
+            if (btn) btn.style.background = "#6d28d9";
+            // Adiciona listener de clique nos containers de página
+            const pageContainers = document.querySelectorAll('.pdf-page-container');
+            pageContainers.forEach(container => {
+                container.style.cursor = 'crosshair';
+                container.addEventListener('click', onClickCriarTarjaManual);
+            });
+        }
+    }
+
+    function onClickCriarTarjaManual(event) {
+        if (!modoAdicionarTarja) return;
+        const pageContainer = event.currentTarget;
+        // Obtém coordenadas do clique relativo ao container
+        const rect = pageContainer.getBoundingClientRect();
+        const scaleX = pageContainer.offsetWidth / rect.width; // pode ser 1 se não houver zoom
+        const clickX = (event.clientX - rect.left) * scaleX;
+        const clickY = (event.clientY - rect.top) * scaleX; // mesma escala
+        // Cria tarja de 100x30px na posição do clique
+        const w = 100;
+        const h = 30;
+        let left = clickX - w/2;
+        let top = clickY - h/2;
+        // Valida limites
+        left = Math.max(0, Math.min(left, pageContainer.offsetWidth - w));
+        top = Math.max(0, Math.min(top, pageContainer.offsetHeight - h));
+        injetarTarjaNaPagina(pageContainer, `${w}px`, `${h}px`, `${top}px`, `${left}px`, false, 'texto');
+        logDebug(`Tarja manual criada em (${left.toFixed(0)}, ${top.toFixed(0)})`, 'match');
+        // Opcional: desativa o modo após criar? O usuário pode querer criar várias, então não desativamos.
+        // Mas podemos dar a opção de clicar novamente no botão para desativar.
+    }
+
+    function removerListenersManuais() {
+        const pageContainers = document.querySelectorAll('.pdf-page-container');
+        pageContainers.forEach(container => {
+            container.style.cursor = '';
+            container.removeEventListener('click', onClickCriarTarjaManual);
+        });
+    }
+
+    // Botão de adicionar tarja manual
+    document.getElementById('btn-add-manual').onclick = () => {
+        if (!workspace.style.display === 'flex' || !document.querySelector('.pdf-page-container')) {
+            alert("Carregue um PDF primeiro.");
+            return;
+        }
+        iniciarModoAdicionarTarja();
+    };
+
+    // Quando o workspace for limpo ou novo documento, remove listeners
+    const observer = new MutationObserver(() => {
+        if (workspace.style.display === 'none') {
+            removerListenersManuais();
+            modoAdicionarTarja = false;
+            document.body.classList.remove('modo-adicionar-tarja');
+        }
+    });
+    observer.observe(workspace, { attributes: true, attributeFilter: ['style'] });
 
     function removeAcentos(str) {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -442,7 +522,10 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                 const viewport = page.getViewport({ scale: 1.5 });
                 const textContent = await page.getTextContent();
                 const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
-                if (!pageContainer) continue;
+                if (!pageContainer) {
+                    logDebug(`Container da página ${i} não encontrado.`, 'error');
+                    continue;
+                }
 
                 let textoIntegralDaPagina = "";
                 const linhasObj = [];
@@ -543,7 +626,6 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                 const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
                 if (nomesIA && Array.isArray(nomesIA)) {
                     for (let nome of nomesIA) {
-                        // Limpa o nome antes de processar
                         let nomeLimpo = limparNome(nome);
                         let cleanNome = nomeLimpo.toUpperCase().trim();
                         
@@ -643,8 +725,18 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
             } else {
                 alert("Nenhum nome próprio encontrado pela IA.");
             }
-        } catch(e) { logDebug(`Erro: ${e.message}`, 'error'); } 
-        finally { isScanning = false; btn.style.display = "block"; }
+        } catch(e) { 
+            logDebug(`Erro crítico: ${e.message}`, 'error');
+            alert("Ocorreu um erro durante a análise. Verifique o console.");
+        } finally { 
+            isScanning = false; 
+            btn.style.display = "block";
+            // Reativa o modo de adicionar tarja manual se estava ativo
+            if (modoAdicionarTarja) {
+                removerListenersManuais();
+                iniciarModoAdicionarTarja();
+            }
+        }
     };
 
     document.getElementById('btn-aplicar-nomes').onclick = function() {
@@ -694,14 +786,17 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                 const container = tarja.parentElement;
                 const pageNum = parseInt(container.getAttribute('data-page-number'));
                 const targetPage = pages[pageNum - 1];
-                const { width: pdfWidth } = targetPage.getSize();
+                if (!targetPage) return;
+                const { width: pdfWidth, height: pdfHeight } = targetPage.getSize();
                 const scaleX = pdfWidth / container.offsetWidth;
-                const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (targetPage.getSize().height / container.offsetHeight);
+                const scaleY = pdfHeight / container.offsetHeight;
+                const x = parseFloat(tarja.style.left) * scaleX;
+                const y = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * scaleY;
                 targetPage.drawRectangle({
-                    x: parseFloat(tarja.style.left) * scaleX,
-                    y: yPdf,
+                    x: x,
+                    y: y,
                     width: tarja.offsetWidth * scaleX,
-                    height: tarja.offsetHeight * (targetPage.getSize().height / container.offsetHeight),
+                    height: tarja.offsetHeight * scaleY,
                     color: PDFLib.rgb(0,0,0)
                 });
             });
@@ -711,8 +806,13 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
             link.href = URL.createObjectURL(blob);
             link.download = "documento_anonimizado.pdf";
             link.click();
-        } catch(e) { alert("Erro ao salvar PDF."); }
-        finally { btn.innerHTML = "💾 3. SALVAR PDF SEGURO"; btn.disabled = false; }
+        } catch(e) { 
+            logDebug("Erro ao salvar PDF: " + e.message, 'error');
+            alert("Erro ao salvar o PDF. Verifique o console."); 
+        } finally { 
+            btn.innerHTML = "💾 3. SALVAR PDF SEGURO"; 
+            btn.disabled = false; 
+        }
     };
 
     carregarDependencias();
