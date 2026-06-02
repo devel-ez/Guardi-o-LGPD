@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // ==================== ESTILOS (com suporte aos novos botões) ====================
+    // ==================== ESTILOS ====================
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
@@ -13,7 +13,7 @@
         .btn-tarja:hover { transform: scale(1.1); }
         .btn-confirmar { background: #059669; }
         .btn-remover { background: #dc2626; }
-        .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
+        .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; overflow: hidden; }
         .lgpd-progress-fill { height: 100%; background: #f43f5e; transition: width 0.1s ease; border-radius: 4px; }
         .lgpd-name-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
         .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
@@ -30,6 +30,7 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
     let isScanning = false;
+    let todasTarjas = []; // Armazena todas as tarjas criadas para verificar sobreposição
 
     // ==================== PAINEL LATERAL ====================
     const root = document.createElement('div');
@@ -98,10 +99,18 @@
             if (tipo === 'error') cor = '#ef4444'; 
             if (tipo === 'suspect') cor = '#fb7185'; 
             if (tipo === 'skip') cor = '#94a3b8';
+            if (tipo === 'coord') cor = '#8b5cf6';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
         console.log(msg);
+    }
+
+    function debugCoordenadas(tipo, texto, bboxRaw, bboxConvertido, final) {
+        logDebug(`[COORD ${tipo}] Texto: "${texto}"`, 'coord');
+        logDebug(`  Raw: x0=${bboxRaw.x0?.toFixed(2)}, y0=${bboxRaw.y0?.toFixed(2)}, x1=${bboxRaw.x1?.toFixed(2)}, y1=${bboxRaw.y1?.toFixed(2)}`, 'coord');
+        logDebug(`  Convertido: x0=${bboxConvertido.x0?.toFixed(2)}, y0=${bboxConvertido.y0?.toFixed(2)}, x1=${bboxConvertido.x1?.toFixed(2)}, y1=${bboxConvertido.y1?.toFixed(2)}`, 'coord');
+        logDebug(`  Tarja final: w=${final.w}px, h=${final.h}px, left=${final.left}px, top=${final.top}px`, 'coord');
     }
 
     document.getElementById('btn-toggle-log').onclick = function() {
@@ -166,6 +175,7 @@
         globalPdfJsDoc = null;
         originalArrayBuffer = null;
         mapNomesSuspeitos.clear();
+        todasTarjas = [];
         if(objectUrl) URL.revokeObjectURL(objectUrl);
         fileInput.value = ""; 
     };
@@ -211,6 +221,7 @@
             pageContainer.setAttribute('data-page-number', i);
             pageContainer.style.width = `${viewport.width}px`;
             pageContainer.style.height = `${viewport.height}px`;
+            pageContainer.style.position = 'relative';
 
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
@@ -223,14 +234,78 @@
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
     }
 
-    // ========== NOVA FUNÇÃO DE TARJA COM BOTÕES DE CONFIRMAR E REMOVER ==========
-    function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
+    // Função para verificar sobreposição de tarjas
+    function isOverlapping(pageContainer, left, top, width, height, margin = 10) {
+        const existingTarjas = pageContainer.querySelectorAll('.tarja-lgpd-custom');
+        for (let tarja of existingTarjas) {
+            const existingLeft = parseFloat(tarja.style.left);
+            const existingTop = parseFloat(tarja.style.top);
+            const existingWidth = parseFloat(tarja.style.width);
+            const existingHeight = parseFloat(tarja.style.height);
+            
+            if (Math.abs(existingLeft - left) < margin && 
+                Math.abs(existingTop - top) < margin &&
+                Math.abs(existingWidth - width) < margin &&
+                Math.abs(existingHeight - height) < margin) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Função para limpar nome (remover pontuação e tentar separar nomes colados)
+    function limparNome(nome) {
+        if (!nome) return nome;
+        
+        // Remove pontuação no final
+        let limpo = nome.replace(/[,;.:!?]+$/, '').trim();
+        
+        // Tenta separar nomes colados comuns
+        const nomesComuns = ['MALAQUIAS', 'HENRIQUE', 'AUGUSTO', 'ANTONIO', 'JOAO', 'JOSE', 'MARIA', 'PEDRO', 'PAULO', 'CARLOS', 'ROBERTO', 'RAFAEL', 'GABRIEL', 'LUCAS', 'FELIPE', 'GUSTAVO', 'DANIEL', 'MARCOS', 'ANDRE', 'RICARDO', 'RODRIGO', 'FERNANDO', 'EDUARDO', 'VICTOR', 'VINICIUS'];
+        
+        for (let nomeComum of nomesComuns) {
+            const regex = new RegExp(`([A-Z]{2,})(${nomeComum})([A-Z])`, 'i');
+            if (regex.test(limpo)) {
+                limpo = limpo.replace(regex, '$1 $2 $3');
+                break;
+            }
+        }
+        
+        return limpo;
+    }
+
+    // Função para calcular coordenadas da tarja com validação de limites
+    function calcularCoordenadasTarja(bboxConvertido, h_font, pageContainer, tipo = 'texto') {
+        let w = Math.max(bboxConvertido.x1 - bboxConvertido.x0 + 10, 30);
+        let h = tipo === 'assinatura' ? Math.max(h_font + 30, 60) : Math.max(h_font + 8, 16);
+        let left = bboxConvertido.x0 - 5;
+        let top = bboxConvertido.y0 - h + 2;
+        
+        // Valida limites
+        left = Math.max(0, left);
+        top = Math.max(0, top);
+        
+        // Garante que não ultrapassa os limites da página
+        const maxLeft = pageContainer.offsetWidth - w;
+        const maxTop = pageContainer.offsetHeight - h;
+        if (left > maxLeft) left = maxLeft;
+        if (top > maxTop) top = maxTop;
+        
+        return { w: `${w}px`, h: `${h}px`, left: `${left}px`, top: `${top}px`, wRaw: w, hRaw: h };
+    }
+
+    function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false, tipo = 'texto') {
+        // Verifica sobreposição
+        if (isOverlapping(pageContainer, parseFloat(left), parseFloat(top), parseFloat(w), parseFloat(h))) {
+            logDebug(`Tarja ignorada (sobreposição): ${left}, ${top}`, 'skip');
+            return null;
+        }
+        
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         if (autoConfirma) {
             tarja.classList.add('confirmada');
         } else {
-            // Cria botões de ação
             const btnContainer = document.createElement('div');
             btnContainer.className = 'tarja-buttons';
             const btnConfirm = document.createElement('button');
@@ -248,7 +323,6 @@
             btnConfirm.onclick = (e) => {
                 e.stopPropagation();
                 tarja.classList.add('confirmada');
-                // Remove botões (já escondidos pelo CSS)
                 btnContainer.style.display = 'none';
             };
             btnRemove.onclick = (e) => {
@@ -261,58 +335,29 @@
         tarja.style.top = top;
         tarja.style.left = left;
         pageContainer.appendChild(tarja);
-
-        // Se não for auto confirmada, permite arrastar apenas quando não confirmada (já tem cursor: move)
-        if (!autoConfirma) {
-            // Implementação básica de arrasto (opcional, mantém o cursor move)
-            let isDragging = false, startX, startY, startLeft, startTop;
-            tarja.addEventListener('mousedown', (e) => {
-                if (e.target === btnConfirm || e.target === btnRemove) return;
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                startLeft = parseFloat(tarja.style.left);
-                startTop = parseFloat(tarja.style.top);
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
-                e.preventDefault();
-            });
-            function onMouseMove(e) {
-                if (!isDragging) return;
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                tarja.style.left = (startLeft + dx) + 'px';
-                tarja.style.top = (startTop + dy) + 'px';
-            }
-            function onMouseUp() {
-                isDragging = false;
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-            }
-        }
+        
+        todasTarjas.push(tarja);
+        return tarja;
     }
 
     function removeAcentos(str) {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // ========== BLACKLIST PARA EVITAR FALSOS POSITIVOS ==========
     const blacklistPalavras = new Set([
         "NOME", "TURMA", "ANO", "DATA", "CIDADE", "UF", "PAÍS", "CEP", "CPF", "CNPJ",
         "ASSINATURA", "CERTIFICADO", "DIGITAL", "GOV", "BR", "VALIDAR", "ITI",
         "ORD", "OBS", "TOTAL", "SUBTOTAL", "PÁGINA", "FOLHA", "DOCUMENTO"
     ]);
+    
     function isFalsoPositivo(texto) {
         const upper = texto.toUpperCase().trim();
         if (blacklistPalavras.has(upper)) return true;
-        // Números que são anos (19xx, 20xx)
         if (/^(19|20)\d{2}$/.test(upper)) return true;
-        // Palavras com menos de 3 letras
         if (upper.length <= 2 && /^[A-Z]+$/.test(upper)) return true;
         return false;
     }
 
-    // ========== REGEX APERFEIÇOADOS ==========
     const regexCPF = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g;
     const regexCNPJ = /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g;
     const regexAssinatura = /(gov\.?br(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|assinatura\s+eletr[ôo]nica|certificado\s+digital)/gi;
@@ -327,7 +372,6 @@
         { tipo: 'endereco', r: regexEndereco }
     ];
 
-    // ========== PROMPT IA MELHORADO ==========
     const PROMPT_IA = `Você é um sistema rigoroso de anonimização de dados (LGPD). Extraia APENAS nomes completos de PESSOAS FÍSICAS REAIS do texto.
 
 REGRAS ABSOLUTAS:
@@ -337,6 +381,8 @@ REGRAS ABSOLUTAS:
 4. NUNCA extraia nomes que apareçam após palavras de logradouro (RUA, AVENIDA, PRAÇA, etc.).
 5. NÃO inclua patentes (Maj, Cap, Cel, etc.) – retorne apenas o nome.
 6. COPIE o nome exatamente como aparece no texto.
+7. Ao retornar o nome, NUNCA inclua pontuações como vírgulas, pontos, ponto e vírgula ou dois pontos no final.
+8. Se houver dois nomes próprios consecutivos sem espaço entre eles (ex: 'CAIOMALAQUIAS'), retorne-os separados por espaço ('CAIO MALAQUIAS') se forem nomes comuns no contexto brasileiro.
 
 Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTOS"]`;
 
@@ -352,7 +398,7 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                         model: modelName,
                         messages: [
                             { role: 'system', content: PROMPT_IA },
-                            { role: 'user', content: `Texto:\n\n${textoDaPagina.substring(0, 15000)}` } // limitar para evitar timeout
+                            { role: 'user', content: `Texto:\n\n${textoDaPagina.substring(0, 15000)}` }
                         ],
                         temperature: 0.1
                     })
@@ -370,7 +416,6 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
         return null;
     }
 
-    // ========== BOTÃO ANALISAR ==========
     document.getElementById('btn-auto-scan').onclick = async function() {
         if (isScanning) { alert("Análise já em andamento."); return; }
         const apiKey = document.getElementById('groq-api-key').value.trim();
@@ -386,6 +431,7 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
         document.getElementById('lgpd-debug-log').style.display = 'block';
         isScanning = true;
         mapNomesSuspeitos.clear();
+        todasTarjas = [];
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
@@ -440,7 +486,7 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                     });
                 }
 
-                // ----- Auto-tarja com regex (CPF, CNPJ, CEP, Assinatura, Endereço) -----
+                // Auto-tarja com regex
                 linhasObj.forEach(linha => {
                     const overlaps = new Uint8Array(linha.texto.length);
                     regexesBusca.forEach(regObj => {
@@ -458,26 +504,33 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                                 while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
                                 while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
                                 if (startIndex <= endIndex) {
-                                    let x0, y0, x1, h_font;
+                                    let bboxRaw = { x0: 0, y0: 0, x1: 0, y1: 0 };
+                                    let bboxConvertido = { x0: 0, y0: 0, x1: 0, y1: 0 };
+                                    let h_font = 12;
+                                    
                                     if (linha.charMap[startIndex].item.transform) {
                                         const first = linha.charMap[startIndex].item;
                                         const last = linha.charMap[endIndex].item;
-                                        [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                        [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        bboxRaw = { x0: first.transform[4], y0: first.transform[5], x1: last.transform[4] + last.width, y1: last.transform[5] };
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                        const [x1, y1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        bboxConvertido = { x0, y0, x1, y1 };
                                         const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
                                         h_font = fs * viewport.scale;
                                     } else {
                                         const first = linha.charMap[startIndex].item;
                                         const last = linha.charMap[endIndex].item;
-                                        [x0, y0] = viewport.convertToViewportPoint(first.bbox.x0, first.bbox.y1);
-                                        [x1, y1] = viewport.convertToViewportPoint(last.bbox.x1, last.bbox.y0);
+                                        bboxRaw = { x0: first.bbox.x0, y0: first.bbox.y1, x1: last.bbox.x1, y1: last.bbox.y0 };
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.bbox.x0, first.bbox.y1);
+                                        const [x1, y1] = viewport.convertToViewportPoint(last.bbox.x1, last.bbox.y0);
+                                        bboxConvertido = { x0, y0, x1, y1 };
                                         h_font = Math.abs(y1 - y0);
                                     }
-                                    let w_val = Math.max(x1 - x0 + 10, 15);
-                                    let h_val = Math.max(h_font + 8, 12);
-                                    let finalX = x0 - 5;
-                                    let finalY = y0 - h_val + 2;
-                                    injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, false);
+                                    
+                                    const tipoTarja = regObj.tipo === 'ass' ? 'assinatura' : 'texto';
+                                    const coords = calcularCoordenadasTarja(bboxConvertido, h_font, pageContainer, tipoTarja);
+                                    debugCoordenadas(regObj.tipo, cleanStr, bboxRaw, bboxConvertido, coords);
+                                    injetarTarjaNaPagina(pageContainer, coords.w, coords.h, coords.top, coords.left, false, tipoTarja);
                                 }
                                 for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                             }
@@ -485,18 +538,21 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                     });
                 });
 
-                // ----- IA para nomes com pós-filtro -----
+                // IA para nomes
                 scanStatus.innerText = `IA Groq na Pág. ${i}...`;
                 const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
                 if (nomesIA && Array.isArray(nomesIA)) {
                     for (let nome of nomesIA) {
-                        let cleanNome = nome.toUpperCase().trim();
+                        // Limpa o nome antes de processar
+                        let nomeLimpo = limparNome(nome);
+                        let cleanNome = nomeLimpo.toUpperCase().trim();
+                        
                         if (isFalsoPositivo(cleanNome)) {
                             logDebug(`[IA ignorado] ${cleanNome}`, 'skip');
                             continue;
                         }
                         if (cleanNome.split(/\s+/).length < 2) continue;
-                        // Pós-processamento contextual
+                        
                         let deveIgnorar = false;
                         for (let linha of linhasObj) {
                             const idx = linha.texto.toUpperCase().indexOf(cleanNome);
@@ -510,8 +566,9 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                             }
                         }
                         if (deveIgnorar) continue;
+                        
                         logDebug(`[IA] Pessoa: ${cleanNome}`, 'suspect');
-                        // Mapear coordenadas
+                        
                         for (let linha of linhasObj) {
                             let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
                             let nomeSearch = removeAcentos(cleanNome);
@@ -524,20 +581,36 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
                                 if (start <= end) {
                                     const first = linha.charMap[start].item;
                                     const last = linha.charMap[end].item;
-                                    let x0, y0, x1, h;
+                                    let bboxRaw = { x0: 0, y0: 0, x1: 0, y1: 0 };
+                                    let bboxConvertido = { x0: 0, y0: 0, x1: 0, y1: 0 };
+                                    let h_font = 12;
+                                    
                                     if (first.transform) {
-                                        [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                        [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        bboxRaw = { x0: first.transform[4], y0: first.transform[5], x1: last.transform[4] + last.width, y1: last.transform[5] };
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                        const [x1, y1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        bboxConvertido = { x0, y0, x1, y1 };
                                         const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                        h = Math.max((fs * viewport.scale) + 8, 12);
+                                        h_font = fs * viewport.scale;
                                     } else {
-                                        [x0, y0] = viewport.convertToViewportPoint(first.bbox.x0, first.bbox.y1);
-                                        [x1, y1] = viewport.convertToViewportPoint(last.bbox.x1, last.bbox.y0);
-                                        h = Math.abs(y1 - y0) + 8;
+                                        bboxRaw = { x0: first.bbox.x0, y0: first.bbox.y1, x1: last.bbox.x1, y1: last.bbox.y0 };
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.bbox.x0, first.bbox.y1);
+                                        const [x1, y1] = viewport.convertToViewportPoint(last.bbox.x1, last.bbox.y0);
+                                        bboxConvertido = { x0, y0, x1, y1 };
+                                        h_font = Math.abs(y1 - y0);
                                     }
+                                    
+                                    const coords = calcularCoordenadasTarja(bboxConvertido, h_font, pageContainer, 'texto');
+                                    debugCoordenadas('nome', cleanNome, bboxRaw, bboxConvertido, coords);
+                                    
                                     mapNomesSuspeitos.get(cleanNome).push({
                                         pageNode: pageContainer,
-                                        w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
+                                        w: coords.w,
+                                        h: coords.h,
+                                        x: coords.left,
+                                        y: coords.top,
+                                        wRaw: coords.wRaw,
+                                        hRaw: coords.hRaw
                                     });
                                 }
                                 idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
@@ -582,8 +655,12 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
             const coords = mapNomesSuspeitos.get(nome);
             if (coords) {
                 coords.forEach(coord => {
-                    injetarTarjaNaPagina(coord.pageNode, `${coord.w}px`, `${coord.h}px`, `${coord.y}px`, `${coord.x}px`, false);
-                    aplicadas++;
+                    if (!isOverlapping(coord.pageNode, parseFloat(coord.x), parseFloat(coord.y), coord.wRaw, coord.hRaw)) {
+                        injetarTarjaNaPagina(coord.pageNode, coord.w, coord.h, coord.y, coord.x, false, 'texto');
+                        aplicadas++;
+                    } else {
+                        logDebug(`Tarja ignorada para ${nome} (sobreposição)`, 'skip');
+                    }
                 });
             }
         });
@@ -592,7 +669,6 @@ Retorne APENAS um array JSON de strings. Exemplo: ["JOAO DA SILVA", "MARIA SANTO
         alert(`${aplicadas} tarjas adicionadas. Use os botões ✓/✕ em cada tarja para confirmar ou remover.`);
     };
 
-    // Confirmar todas as tarjas pendentes (não confirmadas)
     document.getElementById('btn-confirm-all-tarjas').onclick = function() {
         const pendentes = document.querySelectorAll('.tarja-lgpd-custom:not(.confirmada)');
         pendentes.forEach(tarja => {
