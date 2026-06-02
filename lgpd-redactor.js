@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Tema Groq)
+    // ==================== ESTILOS (Tema atualizado) ====================
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
@@ -13,12 +13,10 @@
         .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
-        
         .lgpd-name-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
         .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
         .lgpd-name-item input { cursor: pointer; }
         .lgpd-name-item:hover { background: #f8fafc; }
-        
         #lgpd-debug-log::-webkit-scrollbar, .lgpd-name-list::-webkit-scrollbar { width: 6px; }
         #lgpd-debug-log::-webkit-scrollbar-thumb, .lgpd-name-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     `;
@@ -29,8 +27,9 @@
     let objectUrl = null; 
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
+    let isScanning = false; // controla múltiplas análises
 
-    // 2. Painel Lateral UI
+    // ==================== PAINEL LATERAL ====================
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -41,17 +40,14 @@
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
-            
             <div style="background:#fff1f2; border:1px solid #fecdd3; padding:10px; border-radius:6px; font-size:11px; color:#be123c;">
-                <b>Conexão Groq AI (100% Grátis):</b> Cole sua chave API (gsk_...).
+                <b>Conexão Groq AI (Grátis):</b> Cole sua chave API (gsk_...). <span style="color:#0f172a;">(a chave não é salva em disco)</span>
                 <input type="password" id="groq-api-key" placeholder="Cole a Chave da API aqui (gsk_...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #fecdd3; border-radius:4px; font-size:11px;" />
             </div>
-
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
                 <span style="font-size:13px;color:#475569;font-weight:bold;">Arraste o PDF aqui</span>
                 <input type="file" id="lgpd-file-input" accept="application/pdf" style="display:none;" />
             </div>
-
             <div id="lgpd-load-progress-container" style="display:none;background:#fff;border:1px solid #e2e8f0;padding:16px;border-radius:8px;">
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;font-weight:bold;">
                     <span id="lgpd-load-status">Processando...</span>
@@ -59,10 +55,8 @@
                 </div>
                 <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#f43f5e;"></div></div>
             </div>
-
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
                 <button id="btn-auto-scan" style="width:100%;padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(244, 63, 94, 0.3);">🚀 1. Analisar com IA Groq</button>
-                
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
                         <span id="lgpd-scan-status">Iniciando IA...</span>
@@ -70,17 +64,14 @@
                     </div>
                     <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#f43f5e;"></div></div>
                 </div>
-
                 <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
                     <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 IA Encontrou (Marque as Pessoas Físicas):</span>
                     <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
                     <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
                 </div>
-
                 <hr style="border:0;border-top:1px solid #e2e8f0;margin:5px 0;">
                 <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);">💾 3. SALVAR PDF SEGURO</button>
                 <button id="btn-new-doc" style="width:100%;padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">📄 Carregar Novo Documento</button>
-                
                 <button id="btn-toggle-log" style="width:100%;padding:8px;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">💻 Exibir Console de Rastreio</button>
                 <div id="lgpd-debug-log" style="display:none; height:120px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA IA ATIVADO...<br></div>
             </div>
@@ -88,7 +79,8 @@
     `;
     document.body.appendChild(root);
 
-    const savedKey = localStorage.getItem('lgpd_groq_api_key');
+    // Carrega chave da sessionStorage (mais seguro que localStorage)
+    const savedKey = sessionStorage.getItem('lgpd_groq_api_key');
     if (savedKey) document.getElementById('groq-api-key').value = savedKey;
 
     const workspace = document.createElement('div');
@@ -260,28 +252,27 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA GROQ (FALLBACK DE MODELOS LLAMA 3 ATUALIZADO) ---
-    async function getNamesFromIA(textoDaPagina, apiKey) {
-        const prompt = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
+    // ========== DETECÇÃO DE ENDEREÇOS via REGEX (nova) ==========
+    const regexEndereco = /\b(?:Rua|Av\.?|Avenida|Alameda|Travessa|Praça|Largo|Rodovia|Estrada|Quadra|Lote|Conjunto|Condomínio|Viela|Parque|Jardim)\s+[A-Za-zÀ-ÖØ-öø-ÿ0-9\s,]+(?:,?\s*\d{1,5}(?:\s*[A-Za-z]?)?)?\b/gi;
+
+    // ========== PROMPT MELHORADO PARA IA GROQ ==========
+    const PROMPT_IA = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
 Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
 
 REGRAS ABSOLUTAS SOB PENA DE FALHA:
 1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela, palavras isoladas ou identificadores de colunas (Exemplos do que NÃO extrair: "NOME", "POSTO", "A/Q/SV", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA").
 2. É ESTRITAMENTE PROIBIDO extrair siglas de especialidades militares (Exemplos do que NÃO extrair: "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", "QEMEL", "QEMFC").
-3. NÃO inclua a patente junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
-4. NÃO inclua empresas (LTDA, ME), órgãos públicos, batalhões ou secretarias.
-5. Copie o nome de pessoa física EXATAMENTE como aparece no texto lido pelo OCR.
-6. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
+3. NUNCA inclua a patente junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
+4. NUNCA inclua empresas (LTDA, ME, EIRELI, S/A), órgãos públicos, batalhões ou secretarias.
+5. NUNCA extraia um nome que apareça imediatamente após as palavras: "RUA", "AVENIDA", "PRAÇA", "TRAVESSA", "LOTE", "QUADRA", "CONDOMÍNIO", "JARDIM", "PARQUE", "ALAMEDA", "ESTRADA", "RODOVIA".
+6. Copie o nome de pessoa física EXATAMENTE como aparece no texto lido pelo OCR.
+7. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
 
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-        // Matriz atualizada: Do modelo Llama 3.3 Versatile até os modelos mais estáveis.
-        const modelosGroq = [
-            'llama-3.3-70b-versatile', 
-            'llama-3.1-8b-instant', 
-            'mixtral-8x7b-32768'
-        ];
+    async function getNamesFromIA(textoDaPagina, apiKey) {
+        const modelosGroq = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
 
         for (let modelName of modelosGroq) {
             logDebug(`[IA] Conectando ao modelo Groq: ${modelName}...`, 'info');
@@ -295,52 +286,53 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                     body: JSON.stringify({
                         model: modelName,
                         messages: [
-                            { role: 'system', content: prompt },
+                            { role: 'system', content: PROMPT_IA },
                             { role: 'user', content: `Texto Extraído da Página:\n\n${textoDaPagina}` }
                         ],
-                        temperature: 0.1 
+                        temperature: 0.1
                     })
                 });
 
                 const data = await response.json();
-
                 if (data.error) {
                     logDebug(`[Aviso API Groq - ${modelName}] ${data.error.message}`, 'skip');
-                    continue; // Erro no modelo (ex: descontinuado), tenta o próximo do array
+                    continue;
                 }
-
                 if (data.choices && data.choices[0].message && data.choices[0].message.content) {
                     let responseText = data.choices[0].message.content.trim();
                     let jsonMatch = responseText.match(/\[.*\]/s);
-                    if (jsonMatch) {
-                        return JSON.parse(jsonMatch[0]);
-                    } else {
-                        return JSON.parse(responseText); 
-                    }
+                    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+                    else return JSON.parse(responseText);
                 }
             } catch (e) {
                 logDebug(`[Erro de Rede - ${modelName}] ${e.message}`, "error");
             }
         }
-        
-        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos da matriz de fallback.`, "error");
+        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos.`, "error");
         return null;
     }
 
-    // Regras Matemáticas Seguras
+    // ========== REGEX PARA DADOS ESTRUTURADOS (mantido) ==========
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
-        { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
+        { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi },
+        { tipo: 'endereco', r: regexEndereco } // novo
     ];
 
+    // ========== BOTÃO ANALISAR (refatorado) ==========
     document.getElementById('btn-auto-scan').onclick = async function() {
-        const apiKey = document.getElementById('groq-api-key').value.trim();
-        if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API do Groq no campo indicado.");
+        if (isScanning) {
+            alert("Análise já em andamento. Aguarde.");
             return;
         }
-        localStorage.setItem('lgpd_groq_api_key', apiKey);
+        const apiKey = document.getElementById('groq-api-key').value.trim();
+        if (!apiKey) {
+            alert("Cole a sua Chave da API do Groq no campo indicado.");
+            return;
+        }
+        // salva em sessionStorage (não localStorage)
+        sessionStorage.setItem('lgpd_groq_api_key', apiKey);
 
         const btn = this;
         const scanContainer = document.getElementById('lgpd-scan-progress-container');
@@ -350,6 +342,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
         btn.style.display = "none"; 
         scanContainer.style.display = "block";
         document.getElementById('lgpd-debug-log').style.display = 'block';
+        isScanning = true;
         
         mapNomesSuspeitos.clear();
 
@@ -366,186 +359,199 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                 const textContent = await page.getTextContent();
                 const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
                 
-                if (pageContainer) {
-                    const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
-                    let textoIntegralDaPagina = "";
-                    const linhasObj = [];
+                if (!pageContainer) continue;
 
-                    if (validItems.length > 10) {
-                        let linhaAtual = null;
+                // ----- 1. Extração do texto e estrutura de linhas -----
+                let textoIntegralDaPagina = "";
+                const linhasObj = [];
+                const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
 
-                        validItems.sort((a, b) => {
-                            const dy = b.transform[5] - a.transform[5];
-                            if (Math.abs(dy) > 5) return dy;
-                            return a.transform[4] - b.transform[4];
-                        }).forEach(item => {
-                            const itemY = item.transform[5];
-                            if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
-                                linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
-                                linhasObj.push(linhaAtual);
-                            }
-                            
-                            let sep = '';
-                            if (linhaAtual.tokens.length > 0) {
-                                const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
-                                const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
-                                if (distX > 35) sep = ' | ';
-                                else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
-                            }
-                            linhaAtual.tokens.push(item);
-                            
-                            for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
-                            for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
-                            
-                            linhaAtual.texto += sep + item.str;
-                        });
-
-                        textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
-                    } else {
-                        scanStatus.innerText = `Extraindo imagem Pág. ${i}...`;
-                        if (typeof Tesseract === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
-                        const canvas = pageContainer.querySelector('canvas');
-                        const { data } = await Tesseract.recognize(canvas, 'por');
-                        textoIntegralDaPagina = data.text;
-                        
-                        data.lines.forEach(line => {
-                            let obj = { texto: line.text, charMap: [] };
-                            for(let c=0; c<line.text.length; c++) obj.charMap.push({char: line.text[c], item: line});
-                            linhasObj.push(obj);
-                        });
-                    }
-
-                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA ---
-                    linhasObj.forEach(linha => {
-                        const overlaps = new Uint8Array(linha.texto.length);
-                        
-                        regexesBusca.forEach(regObj => {
-                            let match;
-                            regObj.r.lastIndex = 0;
-                            while ((match = regObj.r.exec(linha.texto)) !== null) {
-                                let cleanStr = match[1] || match[0];
-                                let matchIdx = linha.texto.indexOf(cleanStr, match.index);
-                                if (matchIdx === -1) matchIdx = match.index;
-
-                                let hasOverlap = false;
-                                for (let k = 0; k < cleanStr.length; k++) {
-                                    if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
-                                }
-
-                                if (!hasOverlap) {
-                                    logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                    
-                                    let startIndex = matchIdx;
-                                    let endIndex = matchIdx + cleanStr.length - 1;
-                                    while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
-                                    while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
-                                    
-                                    if (startIndex <= endIndex) {
-                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
-                                        let h_font = 10;
-
-                                        if (linha.charMap[startIndex].item.transform) {
-                                            const first = linha.charMap[startIndex].item;
-                                            const last = linha.charMap[endIndex].item;
-                                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                            bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0; 
-                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                            h_font = fs * viewport.scale;
-                                        } else {
-                                            const item = linha.charMap[startIndex].item;
-                                            bbox.x0 = item.bbox.x0; bbox.y0 = item.bbox.y1; bbox.x1 = item.bbox.x1; bbox.y1 = item.bbox.y1;
-                                            h_font = item.bbox.y1 - item.bbox.y0;
-                                        }
-
-                                        let isAss = (regObj.tipo === 'ass');
-                                        let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
-                                        let w_val, h_val, finalX, finalY;
-
-                                        if (isAss) {
-                                            if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
-                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
-                                        } else {
-                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
-                                        }
-
-                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
-                                    }
-                                    for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
-                                }
-                            }
-                        });
+                if (validItems.length > 10) {
+                    let linhaAtual = null;
+                    validItems.sort((a, b) => {
+                        const dy = b.transform[5] - a.transform[5];
+                        if (Math.abs(dy) > 5) return dy;
+                        return a.transform[4] - b.transform[4];
+                    }).forEach(item => {
+                        const itemY = item.transform[5];
+                        if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
+                            linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
+                            linhasObj.push(linhaAtual);
+                        }
+                        let sep = '';
+                        if (linhaAtual.tokens.length > 0) {
+                            const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
+                            const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
+                            if (distX > 35) sep = ' | ';
+                            else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
+                        }
+                        linhaAtual.tokens.push(item);
+                        for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
+                        for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
+                        linhaAtual.texto += sep + item.str;
                     });
+                    textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
+                } else {
+                    // OCR
+                    scanStatus.innerText = `Extraindo imagem Pág. ${i}...`;
+                    if (typeof Tesseract === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
+                    const canvas = pageContainer.querySelector('canvas');
+                    const { data } = await Tesseract.recognize(canvas, 'por');
+                    textoIntegralDaPagina = data.text;
+                    // Converte linhas do OCR em estrutura simples
+                    data.lines.forEach(line => {
+                        let obj = { texto: line.text, charMap: [] };
+                        for(let c=0; c<line.text.length; c++) obj.charMap.push({char: line.text[c], item: line});
+                        linhasObj.push(obj);
+                    });
+                }
 
-                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
-                    scanStatus.innerText = `Consultando IA Groq na Pág. ${i}...`;
-                    const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
+                // ----- 2. Auto-tarja para dados estruturados (CPF, CNPJ, CEP, ASSINATURA, ENDEREÇO) -----
+                linhasObj.forEach(linha => {
+                    const overlaps = new Uint8Array(linha.texto.length);
                     
-                    if (nomesIA && Array.isArray(nomesIA)) {
-                        nomesIA.forEach(nome => {
-                            let cleanNome = nome.toUpperCase().trim();
-                            
-                            if(cleanNome.split(/\s+/).length > 1) {
-                                logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
-                                
-                                // Correção Mestra de Mapeamento
-                                linhasObj.forEach(linha => {
-                                    let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
-                                    let nomeSearch = removeAcentos(cleanNome);
-                                    
-                                    let idx = textoLinhaLimpo.indexOf(nomeSearch);
-                                    while (idx !== -1) {
-                                        if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
-                                        
-                                        let start = idx; let end = idx + cleanNome.length - 1;
-                                        while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
-                                        while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
-                                        
-                                        if(start <= end) {
-                                            const first = linha.charMap[start].item;
-                                            const last = linha.charMap[end].item;
-                                            
-                                            let x0, y0, x1, h;
-                                            if (first.transform) {
-                                                [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                                [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                                const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                                h = Math.max((fs * viewport.scale) + 8, 12);
-                                            } else {
-                                                x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
-                                                h = first.bbox.y1 - first.bbox.y0 + 8;
-                                            }
-                                            
-                                            mapNomesSuspeitos.get(cleanNome).push({
-                                                pageNode: pageContainer,
-                                                w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
-                                            });
-                                        }
-                                        
-                                        idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
-                                    }
-                                });
+                    regexesBusca.forEach(regObj => {
+                        let match;
+                        regObj.r.lastIndex = 0;
+                        while ((match = regObj.r.exec(linha.texto)) !== null) {
+                            let cleanStr = match[1] || match[0];
+                            let matchIdx = linha.texto.indexOf(cleanStr, match.index);
+                            if (matchIdx === -1) matchIdx = match.index;
+
+                            let hasOverlap = false;
+                            for (let k = 0; k < cleanStr.length; k++) {
+                                if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
                             }
-                        });
-                    } else if (nomesIA === null) {
-                        alert("A chave informada foi rejeitada pela Groq. Verifique a internet e o console de rastreio.");
-                        btn.style.display = "block";
-                        scanContainer.style.display = "none";
-                        return;
-                    }
+                            if (!hasOverlap) {
+                                logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
+                                
+                                let startIndex = matchIdx;
+                                let endIndex = matchIdx + cleanStr.length - 1;
+                                while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
+                                while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
+                                
+                                if (startIndex <= endIndex) {
+                                    let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                    let h_font = 10;
+                                    let isAss = (regObj.tipo === 'ass');
+                                    let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
+                                    
+                                    // Obtém coordenadas (suporta PDF nativo e OCR)
+                                    if (linha.charMap[startIndex].item.transform) {
+                                        const first = linha.charMap[startIndex].item;
+                                        const last = linha.charMap[endIndex].item;
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                        const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0;
+                                        const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                        h_font = fs * viewport.scale;
+                                    } else {
+                                        // OCR: bbox do Tesseract – precisa converter para viewport
+                                        const first = linha.charMap[startIndex].item;
+                                        const last = linha.charMap[endIndex].item;
+                                        const [x0, y0] = viewport.convertToViewportPoint(first.bbox.x0, first.bbox.y1);
+                                        const [x1, y1] = viewport.convertToViewportPoint(last.bbox.x1, last.bbox.y0);
+                                        bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y1;
+                                        h_font = Math.abs(y1 - y0);
+                                    }
+
+                                    let w_val, h_val, finalX, finalY;
+                                    if (isAss) {
+                                        if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
+                                        else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
+                                    } else {
+                                        w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
+                                    }
+                                    injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
+                                }
+                                for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
+                            }
+                        }
+                    });
+                });
+
+                // ----- 3. IA para nomes (com pós-processamento) -----
+                scanStatus.innerText = `Consultando IA Groq na Pág. ${i}...`;
+                const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
+                
+                if (nomesIA && Array.isArray(nomesIA)) {
+                    nomesIA.forEach(nome => {
+                        let cleanNome = nome.toUpperCase().trim();
+                        if(cleanNome.split(/\s+/).length > 1) {
+                            // Pós-processamento: ignora nomes que estejam dentro de contexto de endereço
+                            let deveIgnorar = false;
+                            const contextoProximo = 40; // caracteres antes/depois
+                            for (let linha of linhasObj) {
+                                const idx = linha.texto.toUpperCase().indexOf(cleanNome);
+                                if (idx !== -1) {
+                                    const trecho = linha.texto.substring(Math.max(0, idx - contextoProximo), Math.min(linha.texto.length, idx + cleanNome.length + contextoProximo));
+                                    if (/(RUA|AVENIDA|PRAÇA|TRAVESSA|LOTE|QUADRA|CONDOMÍNIO|JARDIM|PARQUE|ALAMEDA|ESTRADA|RODOVIA)/i.test(trecho)) {
+                                        deveIgnorar = true;
+                                        logDebug(`[IA] Nome ignorado por contexto de endereço: ${cleanNome}`, 'skip');
+                                        break;
+                                    }
+                                }
+                            }
+                            if (deveIgnorar) return;
+
+                            logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
+                            
+                            // Mapeamento de coordenadas (já corrigido para OCR)
+                            linhasObj.forEach(linha => {
+                                let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
+                                let nomeSearch = removeAcentos(cleanNome);
+                                let idx = textoLinhaLimpo.indexOf(nomeSearch);
+                                while (idx !== -1) {
+                                    if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
+                                    
+                                    let start = idx; let end = idx + cleanNome.length - 1;
+                                    while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
+                                    while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
+                                    
+                                    if(start <= end) {
+                                        const first = linha.charMap[start].item;
+                                        const last = linha.charMap[end].item;
+                                        let x0, y0, x1, h;
+                                        if (first.transform) {
+                                            [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                            [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            h = Math.max((fs * viewport.scale) + 8, 12);
+                                        } else {
+                                            // OCR: usa convertToViewportPoint corretamente
+                                            const [x0v, y0v] = viewport.convertToViewportPoint(first.bbox.x0, first.bbox.y1);
+                                            const [x1v, y1v] = viewport.convertToViewportPoint(last.bbox.x1, last.bbox.y0);
+                                            x0 = x0v; y0 = y0v; x1 = x1v;
+                                            h = Math.abs(y1v - y0v) + 8;
+                                        }
+                                        mapNomesSuspeitos.get(cleanNome).push({
+                                            pageNode: pageContainer,
+                                            w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
+                                        });
+                                    }
+                                    idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
+                                }
+                            });
+                        }
+                    });
+                } else if (nomesIA === null) {
+                    alert("A chave informada foi rejeitada pela Groq. Verifique a internet e o console de rastreio.");
+                    isScanning = false;
+                    btn.style.display = "block";
+                    scanContainer.style.display = "none";
+                    return;
                 }
             }
             
             scanContainer.style.display = "none";
             
-            // MONTAGEM DO PAINEL DE REVISÃO HUMANA
+            // Montagem do painel de revisão humana
             const painelRevisao = document.getElementById('painel-revisao-nomes');
             const divLista = document.getElementById('lista-nomes-suspeitos');
             divLista.innerHTML = ''; 
             
             if (mapNomesSuspeitos.size > 0) {
                 const nomesOrdenados = Array.from(mapNomesSuspeitos.keys()).sort();
-                
                 nomesOrdenados.forEach(nome => {
                     const label = document.createElement('label');
                     label.className = 'lgpd-name-item';
@@ -553,23 +559,21 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                     checkbox.type = 'checkbox';
                     checkbox.value = nome;
                     checkbox.checked = true; 
-                    
                     label.appendChild(checkbox);
                     label.appendChild(document.createTextNode(nome));
                     divLista.appendChild(label);
                 });
-                
                 painelRevisao.style.display = 'flex';
                 logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} pessoas para revisão.`);
-                alert(`Leitura IA Concluída!\n\nDocumentos e Assinaturas foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\n\nRevise a lista no painel direito, desmarque quem NÃO deve ser tarjado e clique em "Aplicar Tarjas".`);
+                alert(`Leitura IA Concluída!\n\nDocumentos, assinaturas, CEPs e ENDEREÇOS foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\nRevise a lista e clique em "Aplicar Tarjas".`);
             } else {
-                alert("Mapeamento concluído. A IA não localizou Nomes Próprios na página.");
-                btn.style.display = "block";
+                alert("Mapeamento concluído. A IA não localizou nomes próprios na página.\nEndereços e documentos já foram tarjados automaticamente.");
             }
-
         } catch (e) { 
             logDebug(`Erro Crítico: ${e.message}`, 'error');
             scanStatus.innerText = "Erro no escaneamento.";
+        } finally {
+            isScanning = false;
             btn.style.display = "block";
         }
     };
@@ -577,11 +581,9 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
     document.getElementById('btn-aplicar-nomes').onclick = function() {
         const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
         let aplicadas = 0;
-        
         checkboxes.forEach(chk => {
             const nomeEscolhido = chk.value;
             const coordenadasArray = mapNomesSuspeitos.get(nomeEscolhido);
-            
             if (coordenadasArray) {
                 coordenadasArray.forEach(coord => {
                     injetarTarjaNaPagina(coord.pageNode, `${coord.w}px`, `${coord.h}px`, `${coord.y}px`, `${coord.x}px`, true);
@@ -589,27 +591,22 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                 });
             }
         });
-        
         logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas.`);
         document.getElementById('painel-revisao-nomes').style.display = 'none';
-        document.getElementById('btn-auto-scan').style.display = 'block';
         alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
     };
 
     document.getElementById('btn-save-pdf').onclick = async function() {
         const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
         if (tarjas.length === 0) { alert("Não há tarjas aplicadas no documento para salvar."); return; }
-        
         const btn = this;
         const textoOriginal = btn.innerHTML;
         btn.innerHTML = "⏳ GERANDO PDF SEGURO...";
         btn.disabled = true;
-
         try {
             const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
             const form = pdfDoc.getForm();
             try { form.flatten(); logDebug("[Segurança] Assinaturas achatadas."); } catch(err) {}
-
             const paginasPdfLib = pdfDoc.getPages();
             tarjas.forEach(tarja => {
                 const container = tarja.parentElement;
