@@ -2,27 +2,34 @@
     if (document.getElementById('lgpd-redactor-root')) return;
 
     // ==================== ESTILOS (com cursor de adição) ====================
-    const style = document.createElement('style');
-    style.innerHTML = `
-        .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 2147483647 !important; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; gap: 4px; }
-        .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: default !important; }
-        .tarja-lgpd-custom.confirmada .tarja-buttons { display: none !important; }
-        .tarja-buttons { display: flex; gap: 4px; background: rgba(0,0,0,0.6); padding: 2px 4px; border-radius: 4px; pointer-events: auto; }
-        .btn-tarja { width: 22px; height: 22px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; transition: 0.1s; }
-        .btn-tarja:hover { transform: scale(1.1); }
-        .btn-confirmar { background: #059669; }
-        .btn-remover { background: #dc2626; }
-        .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; overflow: hidden; }
-        .lgpd-progress-fill { height: 100%; background: #f43f5e; transition: width 0.1s ease; border-radius: 4px; }
-        .lgpd-name-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
-        .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
-        .lgpd-name-item input { cursor: pointer; }
-        .lgpd-name-item:hover { background: #f8fafc; }
-        #lgpd-debug-log::-webkit-scrollbar, .lgpd-name-list::-webkit-scrollbar { width: 6px; }
-        #lgpd-debug-log::-webkit-scrollbar-thumb, .lgpd-name-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        .modo-adicionar-tarja { cursor: crosshair !important; }
-    `;
+   const style = document.createElement('style');
+style.innerHTML = `
+    /* ... outros estilos ... */
+    #lgpd-canvas-workspace {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: calc(100vw - 420px);
+        height: 100vh;
+        overflow: auto;
+        padding: 30px;
+        box-sizing: border-box;
+        background: #525659;
+        z-index: 999998;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+    }
+    .pdf-page-container {
+        position: relative;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        background: #fff;
+        overflow: visible;
+        flex-shrink: 0; /* evita que o container encolha */
+    }
+    /* ... resto dos estilos ... */
+`;
     document.head.appendChild(style);
 
     let pdfDocInstance = null; 
