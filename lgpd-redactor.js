@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos 
+    // 1. Estilos (Tema Dark Offline)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
@@ -219,7 +219,6 @@
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
     }
 
-    // --- LÓGICA DO BOTÃO DE INJEÇÃO MANUAL ---
     document.getElementById('btn-manual-tarja').onclick = function() {
         const pages = workspace.querySelectorAll('.pdf-page-container');
         if (pages.length === 0) return;
@@ -331,17 +330,40 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- A BLACKLIST SUPREMA (COMPLETA PARA ROTINAS ADMINISTRATIVAS E MILITARES) ---
+    // --- A BLACKLIST SUPREMA (LICITAÇÕES, MILITAR E ADMINISTRATIVO) ---
     const blacklistPalavras = new Set([
-        // Termos Militares e Organizações
+        // Hierarquia, Documentos e Burocracia SEI/Lei 14.133
+        "PROCESSO", "INTERESSADO", "ASSUNTO", "ORGAO", "ORIGEM", "LOCALIZACAO", "ATUAL", "ESTADO", 
+        "MINUTA", "CRIACAO", "AUTUACAO", "PECAS", "PROCESSUAIS", "TERMO", "ABERTURA", "DESPACHO", 
+        "BOLETIM", "INTERNO", "COTACAO", "RESUMIDO", "NUP", "PREGAO", "ELETRONICO", "INEXIGIBILIDADE", 
+        "DISPENSA", "LICITACAO", "CONTRATO", "ATA", "REGISTRO", "PRECOS", "REFERENCIA", "ESTUDO", 
+        "TECNICO", "PRELIMINAR", "PESQUISA", "EDITAL", "ANEXO", "OBJETO", "VALOR", "GLOBAL", 
+        "UNITARIO", "QUANTIDADE", "UNIDADE", "MEDIDA", "DESCRICAO", "ESPECIFICACAO", "MARCA", 
+        "MODELO", "FABRICANTE", "FORNECEDOR", "EMPRESA", "CONTRATANTE", "CONTRATADA", "GESTOR", 
+        "FISCAL", "ORDENADOR", "DESPESA", "DECLARACAO", "ATESTADO", "CAPACIDADE", "PROPOSTA", 
+        "LANCE", "HOMOLOGACAO", "ADJUDICACAO", "EMPENHO", "NOTA", "FATURA", "PAGAMENTO", "PRAZO", 
+        "VIGENCIA", "GARANTIA", "MULTA", "SANCAO", "PENALIDADE", "RECURSO", "IMPUGNACAO", "AVISO", 
+        "PUBLICACAO", "DIARIO", "AQUISICAO", "COMPRAS", "SERVICOS", "OBRAS", "MATERIAIS", "BENS", 
+        "EQUIPAMENTOS", "SUPRIMENTO", "LOGISTICA", "FINANCAS", "CONTABILIDADE", "PATRIMONIO", 
+        "ALMOXARIFADO", "ALMOXARIFE", "LOCADORA", "TURISMO", "COMERCIO", "INDUSTRIA", "GESTAO", 
+        "LOCACAO", "VEICULOS", "FROTA", "ADITIVO", "CADIN", "CREDITOS", "QUITADOS", "SETOR", 
+        "PUBLICO", "FEDERAL", "CONSULTA", "EMISSAO", "VALIDACAO", "RELATORIO", "CERTIDOES", 
+        "SITUACAO", "PENDENCIAS", "EBC", "PUBLICIDADE", "LEGAL", "APROV", "SALC", "DFD", "ETP", "MR",
+        "DOCUMENTO", "IDENTIDADE", "CNH", "RG", "RESERVISTA", "TITULO", "ELEITOR", "CERTIDAO",
+        "ASSINADO", "ELETRONICAMENTE", "FUNDAMENTO", "HORARIO", "BRASILIA", "PAGINA", "PRESIDENTE", 
+        "REPRESENTANTE", "LEGAL", "CAMARA", "NACIONAL", "MODELOS", "CONSULTORIA", "GERAL", "UNIAO", 
+        "GOVERNO", "ESTADUAL", "MUNICIPAL", "PREFEITURA", "TRIBUNAL", "CONTAS", "SECRETARIA", 
+        "ESPECIAL", "RECEITA", "FAZENDA", "RFB", "CAC", "INCLUSAO", "DISPONIVEL", "OPCAO", "CODIGO", 
+        "ACESSE", "APRESENTACAO", "REALIZADA", "ADMINISTRACAO", "PUBLICA", "MOMENTO", "OPERACAO", 
+        "DESTINA", "INFORMATIVO", "COMPLEMENTO", "NUMERO", "ULTIMA", "ATUALIZACAO",
+
+        // Termos Militares, Jargões e Organizações
         "COMANDO", "EXERCITO", "BRASILEIRO", "MINISTERIO", "DEFESA", "ESQUADRAO", "CAVALARIA", "SELVA", 
         "INFANTARIA", "ARTILHARIA", "ENGENHARIA", "INTENDENCIA", "COMUNICACOES", "QUADRO", "MATERIAL", 
         "BELICO", "SAUDE", "MEDICO", "DENTISTA", "FARMACEUTICO", "BATALHAO", "REGIMENTO", "COMPANHIA", 
         "PELOTAO", "SECAO", "DIVISAO", "DEPARTAMENTO", "DIRETORIA", "CHEFIA", "GABINETE", "COMANDANTE", 
         "CHEFE", "DIRETOR", "OFICIAL", "PRACA", "MILITAR", "CIVIL", "SERVIDOR", "ORGANIZACOES", "MILITARES",
         "SELECAO", "COMANDANTES", "DIRETORES", "QUADROS", "EXTERIOR", "MISSAO", "OMATUAL", "AMAZONIA",
-        
-        // Patentes e Siglas
         "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "SD", "ST", "ALMIRANTE", "BRIGADEIRO",
         "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", "QEMEL", "QEMFC", "PE",
         "MNE", "VETFORINEAS", "TEAA", "CMDO", "FRON", "BIS", "BEC", "BPE", "GAC", "RCG", "BAC", "BAPOPESP", 
@@ -352,37 +374,24 @@
         "ESACOSAAE", "BLOG", "MNMSGM", "CEO", "SGEX", "COEX", "SEF", "DASHVA", "BIPGD", "PREC", "BDOMPSA",
         "BEXAP", "OP", "ESP", "PCLIN", "MPV", "MPA", "CIJF", "CEAC", "CADA", "CIBSB", "DSTAVEX",
 
-        // Licitações, Contratos e Administração (Nova Lei 14.133)
-        "PROCESSO", "NUP", "PREGAO", "ELETRONICO", "INEXIGIBILIDADE", "DISPENSA", "LICITACAO", "CONTRATO", 
-        "ATA", "REGISTRO", "PRECOS", "TERMO", "REFERENCIA", "ESTUDO", "TECNICO", "PRELIMINAR", "PESQUISA", 
-        "EDITAL", "ANEXO", "OBJETO", "VALOR", "GLOBAL", "UNITARIO", "QUANTIDADE", "UNIDADE", "MEDIDA", 
-        "DESCRICAO", "ESPECIFICACAO", "MARCA", "MODELO", "FABRICANTE", "FORNECEDOR", "EMPRESA", "CONTRATANTE", 
-        "CONTRATADA", "GESTOR", "FISCAL", "ORDENADOR", "DESPESA", "DECLARACAO", "ATESTADO", "CAPACIDADE", 
-        "TECNICA", "PROPOSTA", "LANCE", "HOMOLOGACAO", "ADJUDICACAO", "EMPENHO", "NOTA", "FATURA", "PAGAMENTO", 
-        "PRAZO", "VIGENCIA", "GARANTIA", "MULTA", "SANCAO", "PENALIDADE", "RECURSO", "IMPUGNACAO", "AVISO", 
-        "PUBLICACAO", "DIARIO", "BOLETIM", "INTERNO", "AQUISICAO", "COMPRAS", "SERVICOS", "OBRAS", "MATERIAIS", 
-        "BENS", "EQUIPAMENTOS", "SUPRIMENTO", "LOGISTICA", "FINANCAS", "CONTABILIDADE", "PATRIMONIO", 
-        "ALMOXARIFADO", "ALMOXARIFE", "LOCADORA", "TURISMO", "COMERCIO", "INDUSTRIA", "GESTAO", "LOCACAO", 
-        "VEICULOS", "FROTA", "ADITIVO", "CADIN", "CREDITOS", "QUITADOS", "SETOR", "PUBLICO", "FEDERAL", 
-        "CONSULTA", "EMISSAO", "VALIDACAO", "RELATORIO", "CERTIDOES", "SITUACAO", "PENDENCIAS", "EBC", 
-        "PUBLICIDADE", "LEGAL", "APROV", "SALC", "DFD", "ETP", "MR", "COTACAO", "RESUMIDO", "MANUTENCAO",
-
-        // Tipos de Empresa e Elementos do Documento
+        // Termos Genéricos da Língua, Endereços, Conectivos e Verbos
         "LTDA", "EIRELI", "CNPJ", "CPF", "CEP", "RUA", "AVENIDA", "PRACA", "ALAMEDA", "RODOVIA", "ESTRADA", 
         "LOTE", "QUADRA", "SETOR", "BAIRRO", "DISTRITO", "ZONA", "SUL", "NORTE", "LESTE", "OESTE", "CENTRAL",
-        "ME", "EPP", "S/A", "INC", "CORP", "DOCUMENTO", "IDENTIDADE", "CNH", "RG", "RESERVISTA", "TITULO",
-        "ELEITOR", "CERTIDAO",
-
-        // Jargões e Cabeçalhos de Tabelas
-        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO", "DIFUSAO", 
-        "ASSUNTO", "DISTRIBUICAO", "INFORMEX", "INFORMAR", "ESCLARECER", "DEVER", "PALAVRA", "OFICIAL",
-        "VITORIA", "BATALHA", "PATRONOS", "COMUNICACAO", "SOCIAL", "DATA", "ASSINATURA", "CLASSIFICACAO",
-        "ORIGEM", "LOCALIZACAO", "ATUAL", "ESTADO", "MINUTA", "AUTUADO", "CRIACAO", "AUTUACAO", "PECAS", 
-        "PROCESSUAIS", "DESPACHO", "ABERTURA", "INDUSTRIAIS", "DOMESTICOS", "CAMARAS", "RESFRIAMENTO", 
-        "CONGELAMENTO", "TUBULACAO", "GAS", "LIMPEZA", "CAIXA", "AGUA", "SUCCAO", "REMOCAO", "DEJETOS", 
-        "GORDURA", "ESGOTO", "ANALISE", "FISICO", "QUIMICA", "TROCA", "FILTROS", "ELEMENTOS", "FILTRANTES"
+        "ME", "EPP", "S/A", "INC", "CORP", "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", 
+        "ARMA", "DIFUSAO", "DISTRIBUICAO", "INFORMEX", "INFORMAR", "ESCLARECER", "DEVER", "PALAVRA", "VITORIA", 
+        "BATALHA", "PATRONOS", "COMUNICACAO", "SOCIAL", "DATA", "ASSINATURA", "CLASSIFICACAO", "PORTARIA", "LEI", 
+        "ALINEA", "INCISO", "PARAGRAFO", "ARTIGO", "DECRETO", "SISTEMA", "AVALIACAO", "DADOS", "PESSOAIS", 
+        "INFORMACOES", "GERAIS", "CONFORME", "ESTE", "PECA", "NOVEMBRO", "OUTUBRO", "DEZEMBRO", "JANEIRO", 
+        "FEVEREIRO", "MARCO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "QUALQUER", "MESMO", 
+        "AINDA", "COMO", "PARA", "PELO", "PELA", "AOS", "DAS", "DOS", "NAS", "NOS", "POR", "QUE", "QUEM", 
+        "QUAL", "QUANDO", "ONDE", "SER", "FOI", "ERA", "TEM", "TER", "SAO", "ESTA", "ESTAO", "SEJA", "SEJAM", 
+        "FICA", "FICAM", "DEVE", "DEVEM", "PODE", "PODEM", "ANO", "MES", "DIA", "HORA", "MINUTO", "SEGUNDO",
+        "INDUSTRIAIS", "DOMESTICOS", "CAMARAS", "RESFRIAMENTO", "CONGELAMENTO", "TUBULACAO", "GAS", "LIMPEZA", 
+        "CAIXA", "AGUA", "SUCCAO", "REMOCAO", "DEJETOS", "GORDURA", "ESGOTO", "ANALISE", "FISICO", "QUIMICA", 
+        "TROCA", "FILTROS", "ELEMENTOS", "FILTRANTES", "PROVEITO", "GERENTE", "NEGOCIOS", "USUARIO", "EXTERNO"
     ]);
 
+    // Cidades/Estados Comuns para Bloqueio de Tarjas Erradas
     const blacklistCidades = new Set([
         "TUCURUI", "PARA", "BRASILIA", "RIO DE JANEIRO", "SAO PAULO", "MONTES CLAROS", "CAMPO GRANDE", "SANTA MARIA", 
         "CRUZ ALTA", "FOZ DO IGUACU", "PORTO ALEGRE", "JOAO PESSOA", "SAO LUIS", "MANAUS", "BELEM", "RECIFE",
@@ -414,19 +423,19 @@
         return words.join(' ');
     }
 
-    // --- REGRAS MATEMÁTICAS APRIMORADAS (SEM CNPJ) ---
+    // --- REGRAS MATEMÁTICAS APRIMORADAS (SEM CNPJ, APENAS DADOS PESSOAIS) ---
     const regexesBusca = [
-        // CPF exato: XXX.XXX.XXX-XX
-        { tipo: 'cpf', r: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g }, 
+        // CPF (Formato estrito XXX.XXX.XXX-XX, imune a CNPJs)
+        { tipo: 'cpf', r: /(?:CPF\s*[:.-]?\s*)?\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/gi }, 
         
-        // Documentos de Identidade e CNH acompanhados do prefixo
-        { tipo: 'doc_identidade', r: /\b(?:RG|CNH|C\.N\.H\.?|Identidade|Registro Geral)\s*[:.-]?\s*\d{1,3}(?:\.\d{3})*(?:-\d{1,2}|[A-Z0-9]{1,2})?\b/gi },
+        // Documentos de Identidade e CNH (Apenas se precedidos da sigla identificadora)
+        { tipo: 'doc_identidade', r: /\b(?:RG|CNH|C\.N\.H\.?|Identidade|Registro Geral|Passaporte|Doc(?:umento)?\s+Ident(?:idade)?)\s*[:.-]?\s*[A-Z0-9.-]{5,15}\b/gi },
         
-        // Assinaturas Eletrônicas Gov.br
-        { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+        // Assinaturas Eletrônicas Gov.br, e-SIC, SEI
+        { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+eletronicamente|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital|código\s+de\s+validação:\s*[a-zA-Z0-9+/=]{10,}))/gi }, 
         
-        // CEP
-        { tipo: 'cep', r: /\b(CEP\s*:?\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
+        // CEP Estrito
+        { tipo: 'cep', r: /\b(CEP\s*[:.-]?\s*\d{2}\.?\d{3}-\d{3})\b/gi }
     ];
 
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
@@ -445,7 +454,7 @@
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
-            logDebug("\n[INÍCIO] Mapeamento Topográfico (Filtro Militar) Iniciado.", "info");
+            logDebug("\n[INÍCIO] Mapeamento Topográfico (Filtro Administrativo e Militar) Iniciado.", "info");
 
             for (let i = 1; i <= totalPages; i++) {
                 scanStatus.innerText = `Varrendo Matriz - Pág. ${i}/${totalPages}...`;
@@ -507,7 +516,7 @@
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
-                        // 1. Dados Matemáticos Filtrados (Apenas CPF, RG, CNH, CEP, Assinatura)
+                        // 1. Injeção Pessoal Estrita (CPF, RG, CNH, CEP, Assinatura)
                         regexesBusca.forEach(regObj => {
                             let match;
                             regObj.r.lastIndex = 0;
@@ -568,7 +577,7 @@
                             }
                         });
 
-                        // 2. Filtro Supremo para Nomes
+                        // 2. Filtro Supremo para Nomes Próprios
                         let matchNome;
                         regexNomesOffline.lastIndex = 0;
                         while ((matchNome = regexNomesOffline.exec(linha.texto)) !== null) {
@@ -580,12 +589,18 @@
                             if (cleanNome.split(/\s+/).length < 2) continue;
 
                             let cleanNomeFormatado = removeAcentos(cleanNome.toUpperCase().trim());
+                            
+                            // Rejeita qualquer coisa com números (ex: "Portaria 522/2024")
+                            if (/\d/.test(cleanNomeFormatado)) continue;
+                            
                             if (blacklistCidades.has(cleanNomeFormatado)) continue;
 
                             let isBlacklisted = false;
                             let palavras = cleanNomeFormatado.split(/\s+/);
+                            
+                            // A Interrogação Rigorosa: Se uma única palavra do bloco constar na Blacklist, destroi a tarja.
                             for (let w of palavras) {
-                                if (blacklistPalavras.has(w)) {
+                                if (blacklistPalavras.has(w) || w.length <= 1) {
                                     isBlacklisted = true; break;
                                 }
                             }
@@ -599,7 +614,7 @@
                                 while (endIdx >= startIdx && (!linha.charMap[endIdx].item || linha.charMap[endIdx].char.trim() === '')) endIdx--;
 
                                 if (startIdx <= endIdx) {
-                                    logDebug(`[Suspeito Localizado] Desenhando tarja em: ${cleanNome}`, 'suspect');
+                                    logDebug(`[Pessoa Localizada] Desenhando tarja em: ${cleanNome}`, 'suspect');
                                     
                                     const first = linha.charMap[startIdx].item;
                                     const last = linha.charMap[endIdx].item;
@@ -634,7 +649,7 @@
             if (tarjasDesenhadas > 0) {
                 document.getElementById('btn-confirm-all').style.display = 'block';
                 logDebug(`\n[SUCESSO] ${tarjasDesenhadas} tarjas pendentes desenhadas.`, 'info');
-                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre possíveis nomes e documentos.\n\nRevise a página, exclua as incorretas (✕) ou confirme as corretas (✓).\nPara confirmar todas as tarjas válidas de uma vez, clique em "Confirmar Todas as Tarjas" no painel.`);
+                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre nomes e documentos.\n\nRevise a página, exclua as incorretas (✕) ou confirme as corretas (✓).\nPara confirmar todas de uma vez, clique em "Confirmar Todas as Tarjas" no painel.`);
             } else {
                 alert("Mapeamento concluído. O sistema não encontrou Nomes Próprios ou Documentos nesta página.");
                 btn.style.display = "block";
