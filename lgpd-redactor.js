@@ -32,7 +32,7 @@
     let objectUrl = null; 
     let originalArrayBuffer = null;
 
-    // 2. Painel Lateral UI (Minimalista)
+    // 2. Painel Lateral UI
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:350px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -68,6 +68,8 @@
                     <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#10b981;"></div></div>
                 </div>
 
+                <button id="btn-manual-tarja" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);">➕ Adicionar Tarja Manual</button>
+                
                 <button id="btn-confirm-all" style="display:none; width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Confirmar Todas as Tarjas</button>
 
                 <hr style="border:0;border-top:1px solid #e2e8f0;margin:5px 0;">
@@ -217,6 +219,39 @@
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
     }
 
+    // --- LÓGICA DO BOTÃO DE INJEÇÃO MANUAL ---
+    document.getElementById('btn-manual-tarja').onclick = function() {
+        const pages = workspace.querySelectorAll('.pdf-page-container');
+        if (pages.length === 0) return;
+
+        let visiblePage = pages[0];
+        let maxVisible = 0;
+        
+        // Descobre matematicamente qual página você está olhando no momento
+        pages.forEach(p => {
+            const rect = p.getBoundingClientRect();
+            // Calcula o quanto da página está dentro da tela visível do navegador
+            const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+            if(visibleHeight > maxVisible) {
+                maxVisible = visibleHeight;
+                visiblePage = p;
+            }
+        });
+
+        // Calcula a posição Y para a tarja aparecer onde você está olhando, e não presa no topo da página
+        const pageRect = visiblePage.getBoundingClientRect();
+        let topPos = 50; 
+        if (pageRect.top < 0) {
+            topPos = Math.abs(pageRect.top) + 100; // Coloca a tarja 100px abaixo do corte do seu monitor
+        }
+
+        // Injeta a tarja vermelha (não confirmada) com um tamanho padrão de 150x20
+        injetarTarjaNaPagina(visiblePage, '150px', '20px', `${topPos}px`, '50px', false);
+        
+        logDebug(`[Tarja Manual] Inserida na Página ${visiblePage.getAttribute('data-page-number')}`, 'info');
+        document.getElementById('btn-confirm-all').style.display = 'block';
+    };
+
     function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
         const wrapper = document.createElement('div');
         wrapper.className = 'tarja-wrapper';
@@ -301,12 +336,10 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- A NOVA MATRIZ DE INTERROGAÇÃO DE ENTIDADES ---
-    // Palavras individuais que invalidam toda a frase (Unidades, Patentes, Siglas e Jargões)
-    const blacklistPalavras = new Set([
-        "POSTO", "ORD", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
-        "INF", "CAV", "ART", "ENG", "COM", "INT", "QEM", "MED", "DENT", "FARM", 
-        "QEMEL", "QEMFC", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
+    const blacklistGeral = new Set([
+        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
+        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
+        "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
         "INFORMAR", "ESCLARECER", "DEVER", "COMANDO", "EXERCITO", "MINISTERIO", "DEFESA", 
         "GABINETE", "SECRETARIA", "DIRETORIA", "DEPARTAMENTO", "CENTRO", "HOSPITAL", 
         "BATALHAO", "REGIMENTO", "COMPANHIA", "ESQUADRAO", "BASE", "PARQUE", "ARSENAL", 
@@ -329,7 +362,6 @@
         "BEXAP", "OP", "ESP", "PCLIN", "MPV", "MPA", "CIJF", "CEAC", "CADA", "CIBSB", "DSTAVEX"
     ]);
 
-    // Cidades e Estados Exatos que invalidam a frase
     const blacklistCidades = new Set([
         "RIO DE JANEIRO", "SAO PAULO", "MONTES CLAROS", "CAMPO GRANDE", "SANTA MARIA", 
         "CRUZ ALTA", "FOZ DO IGUACU", "PORTO ALEGRE", "JOAO PESSOA", "SAO LUIS", 
@@ -350,7 +382,6 @@
         let words = nomeStr.split(/\s+/);
         while (words.length > 0) {
             let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]|]/g, ''));
-            // Remove se a ponta for uma palavra restrita (como MAJ, INF)
             if (blacklistPalavras.has(limpa) || limpa.length <= 2) words.shift();
             else break;
         }
@@ -362,14 +393,12 @@
         return words.join(' ');
     }
 
-    // Regras Matemáticas Básicas
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
         { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
-    // Busca de Blocos em Maiúsculas (Potenciais Nomes)
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
 
     document.getElementById('btn-auto-scan').onclick = async function() {
@@ -444,7 +473,6 @@
                         });
                     }
 
-                    // --- ETAPA DE INJEÇÃO DIRETA VISUAL ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -515,20 +543,14 @@
                         while ((matchNome = regexNomesOffline.exec(linha.texto)) !== null) {
                             let strOriginal = matchNome[1];
 
-                            // Descarta se pulou colunas
                             if (strOriginal.includes('|')) continue;
 
                             let cleanNome = limparPatentesDasBordas(strOriginal);
-                            
-                            // Rejeita strings muito curtas (menos de 2 palavras)
                             if (cleanNome.split(/\s+/).length < 2) continue;
 
                             let cleanNomeFormatado = removeAcentos(cleanNome.toUpperCase().trim());
-
-                            // Verifica se a string inteira é o nome de uma Cidade
                             if (blacklistCidades.has(cleanNomeFormatado)) continue;
 
-                            // A Interrogação: Verifica palavra por palavra
                             let isBlacklisted = false;
                             let palavras = cleanNomeFormatado.split(/\s+/);
                             for (let w of palavras) {
@@ -537,7 +559,6 @@
                                 }
                             }
 
-                            // Se sobreviveu, desenha a tarja
                             if (!isBlacklisted) {
                                 let startIdx = linha.texto.indexOf(cleanNome, matchNome.index);
                                 if (startIdx === -1) startIdx = matchNome.index;
@@ -581,8 +602,8 @@
             
             if (tarjasDesenhadas > 0) {
                 document.getElementById('btn-confirm-all').style.display = 'block';
-                logDebug(`\n[SUCESSO] ${tarjasDesenhadas} tarjas desenhadas na tela.`);
-                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre nomes e documentos.\n\nRevise a página, exclua as incorretas (✕) ou confirme as corretas (✓).\nPara confirmar todas as tarjas válidas de uma vez, clique em "Confirmar Todas as Tarjas" no painel.`);
+                logDebug(`\n[SUCESSO] ${tarjasDesenhadas} tarjas pendentes desenhadas.`, 'info');
+                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre possíveis nomes e documentos.\n\nRevise a página, exclua as incorretas (✕) ou confirme as corretas (✓).\nPara confirmar todas as tarjas válidas de uma vez, clique em "Confirmar Todas as Tarjas" no painel.`);
             } else {
                 alert("Mapeamento concluído. O sistema não encontrou Nomes Próprios ou Documentos nesta página.");
                 btn.style.display = "block";
