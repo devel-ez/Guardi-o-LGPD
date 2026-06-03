@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Tema Groq)
+    // 1. Estilos
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
@@ -43,7 +43,7 @@
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             
             <div style="background:#fff1f2; border:1px solid #fecdd3; padding:10px; border-radius:6px; font-size:11px; color:#be123c;">
-                <b>Conexão Groq AI (100% Grátis):</b> Cole sua chave API (gsk_...).
+                <b>Conexão Groq AI:</b> Cole sua chave API (gsk_...). O sistema salvará ela no seu navegador.
                 <input type="password" id="groq-api-key" placeholder="Cole a Chave da API aqui (gsk_...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #fecdd3; border-radius:4px; font-size:11px;" />
             </div>
 
@@ -266,17 +266,14 @@
 Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
 
 REGRAS ABSOLUTAS SOB PENA DE FALHA:
-1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela, palavras isoladas ou identificadores de colunas (Exemplos do que NÃO extrair: "NOME", "POSTO", "A/Q/SV", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA").
-2. É ESTRITAMENTE PROIBIDO extrair siglas de especialidades militares (Exemplos do que NÃO extrair: "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", "QEMEL", "QEMFC").
+1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela (NOME, POSTO, A/Q/SV, ORD, UF, CIDADE, OBS, TOTAL, TURMA, ARMA).
+2. É ESTRITAMENTE PROIBIDO extrair siglas militares (INF, CAV, ART, ENG, COM, INT, MB, QEM, MED, DENT, FARM, QEMEL, QEMFC).
 3. NÃO inclua a patente junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
-4. NÃO inclua empresas (LTDA, ME), órgãos públicos, batalhões ou secretarias.
-5. Copie o nome de pessoa física EXATAMENTE como aparece no texto lido pelo OCR.
-6. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
+4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
 
 Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-        // Matriz atualizada: Do modelo Llama 3.3 Versatile até os modelos mais estáveis.
         const modelosGroq = [
             'llama-3.3-70b-versatile', 
             'llama-3.1-8b-instant', 
@@ -298,7 +295,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                             { role: 'system', content: prompt },
                             { role: 'user', content: `Texto Extraído da Página:\n\n${textoDaPagina}` }
                         ],
-                        temperature: 0.1 
+                        temperature: 0.0 
                     })
                 });
 
@@ -306,7 +303,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
                 if (data.error) {
                     logDebug(`[Aviso API Groq - ${modelName}] ${data.error.message}`, 'skip');
-                    continue; // Erro no modelo (ex: descontinuado), tenta o próximo do array
+                    continue; 
                 }
 
                 if (data.choices && data.choices[0].message && data.choices[0].message.content) {
@@ -323,21 +320,29 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
             }
         }
         
-        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos da matriz de fallback.`, "error");
+        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos.`, "error");
         return null;
     }
 
-    // Regras Matemáticas Seguras
+    // Regras Matemáticas Seguras (CPF, CEP, Assinaturas)
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
         { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
+    // FASE 2: BLACKLIST ANTI-ALUCINAÇÃO (O Filtro Intercetor)
+    const blacklistGeral = new Set([
+        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA",
+        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
+        "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
+        "INFORMAR", "ESCLARECER", "DEVER", "COMANDO", "EXERCITO"
+    ]);
+
     document.getElementById('btn-auto-scan').onclick = async function() {
         const apiKey = document.getElementById('groq-api-key').value.trim();
         if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API do Groq no campo indicado.");
+            alert("Atenção! Cole a sua Chave da API da Groq no campo indicado.");
             return;
         }
         localStorage.setItem('lgpd_groq_api_key', apiKey);
@@ -415,7 +420,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                         });
                     }
 
-                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA ---
+                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA E REENGENHARIA DA GEOMETRIA ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -459,12 +464,17 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                                         }
 
                                         let isAss = (regObj.tipo === 'ass');
-                                        let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
+                                        let isGovBrSelo = /gov\.?b\s*r|validar\.iti\.gov\.br/i.test(cleanStr); // FASE 3: Proteção de explosão
                                         let w_val, h_val, finalX, finalY;
 
                                         if (isAss) {
-                                            if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
-                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
+                                            if (isGovBrSelo) { 
+                                                // Expande apenas se for selo oficial Gov.br
+                                                w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; 
+                                            } else { 
+                                                // Se for texto normal (ex: "assinatura eletrônica")
+                                                w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2; 
+                                            }
                                         } else {
                                             w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
@@ -477,58 +487,88 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                         });
                     });
 
+                    // FASE 1: OTIMIZAÇÃO DE TOKENS (Compressão Extrema do Texto)
+                    let textoComprimidoParaIA = textoIntegralDaPagina
+                        .replace(/INFORMAR E ESCLARECER É DEVER DO COMANDO/gi, '')
+                        .replace(/\(INFORMEX.*?FI \d+\/12\)/gi, '')
+                        .replace(/\s+/g, ' ') // Converte múltiplas quebras e espaços em espaço único
+                        .trim();
+
                     // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
                     scanStatus.innerText = `Consultando IA Groq na Pág. ${i}...`;
-                    const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
+                    const nomesIA = await getNamesFromIA(textoComprimidoParaIA, apiKey);
                     
                     if (nomesIA && Array.isArray(nomesIA)) {
                         nomesIA.forEach(nome => {
-                            let cleanNome = nome.toUpperCase().trim();
+                            let cleanNome = removeAcentos(nome.toUpperCase().trim());
                             
-                            if(cleanNome.split(/\s+/).length > 1) {
-                                logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
+                            // Blindagem de Alucinações (Verifica no Set local)
+                            if (cleanNome.length < 4 || cleanNome.split(/\s+/).length < 2) return;
+                            if (blacklistGeral.has(cleanNome) || blacklistGeral.has(cleanNome.split(' ')[0])) return;
+                            
+                            logDebug(`[IA Groq] Buscando coordenadas para: ${cleanNome}`, 'info');
+                            
+                            // FASE 4: OCR FUZZY MATCHING (Ignora espaços em branco ao caçar a coordenada geométrica)
+                            let searchNoSpaces = cleanNome.replace(/\s/g, '');
+
+                            linhasObj.forEach(linha => {
+                                let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
+                                let linhaNoSpaces = textoLinhaLimpo.replace(/\s/g, '');
                                 
-                                // Correção Mestra de Mapeamento
-                                linhasObj.forEach(linha => {
-                                    let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
-                                    let nomeSearch = removeAcentos(cleanNome);
+                                let idxNoSpace = linhaNoSpaces.indexOf(searchNoSpaces);
+                                
+                                while (idxNoSpace !== -1) {
+                                    if (!mapNomesSuspeitos.has(nome.toUpperCase().trim())) {
+                                        mapNomesSuspeitos.set(nome.toUpperCase().trim(), []);
+                                    }
                                     
-                                    let idx = textoLinhaLimpo.indexOf(nomeSearch);
-                                    while (idx !== -1) {
-                                        if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
-                                        
-                                        let start = idx; let end = idx + cleanNome.length - 1;
-                                        while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
-                                        while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
-                                        
-                                        if(start <= end) {
-                                            const first = linha.charMap[start].item;
-                                            const last = linha.charMap[end].item;
-                                            
-                                            let x0, y0, x1, h;
-                                            if (first.transform) {
-                                                [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                                [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                                const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                                h = Math.max((fs * viewport.scale) + 8, 12);
-                                            } else {
-                                                x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
-                                                h = first.bbox.y1 - first.bbox.y0 + 8;
+                                    // Mapeia o índice sem espaços de volta para a string original com espaços esmagados
+                                    let start = 0, end = 0;
+                                    let noSpaceCount = 0;
+                                    for(let c = 0; c < textoLinhaLimpo.length; c++) {
+                                        if (textoLinhaLimpo[c] !== ' ') {
+                                            if (noSpaceCount === idxNoSpace) start = c;
+                                            if (noSpaceCount === idxNoSpace + searchNoSpaces.length - 1) {
+                                                end = c;
+                                                break;
                                             }
-                                            
-                                            mapNomesSuspeitos.get(cleanNome).push({
-                                                pageNode: pageContainer,
-                                                w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
-                                            });
+                                            noSpaceCount++;
+                                        }
+                                    }
+                                    
+                                    // Contrai os limites se houver caracteres vazios no início/fim
+                                    while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
+                                    while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
+                                    
+                                    if(start <= end) {
+                                        const first = linha.charMap[start].item;
+                                        const last = linha.charMap[end].item;
+                                        
+                                        let x0, y0, x1, h;
+                                        if (first.transform) {
+                                            [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                            [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            h = Math.max((fs * viewport.scale) + 8, 12);
+                                        } else {
+                                            x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
+                                            h = first.bbox.y1 - first.bbox.y0 + 8;
                                         }
                                         
-                                        idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
+                                        mapNomesSuspeitos.get(nome.toUpperCase().trim()).push({
+                                            pageNode: pageContainer,
+                                            w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
+                                        });
+                                        
+                                        logDebug(`[Sucesso] Mapeado: ${cleanNome}`, 'suspect');
                                     }
-                                });
-                            }
+                                    
+                                    idxNoSpace = linhaNoSpaces.indexOf(searchNoSpaces, idxNoSpace + searchNoSpaces.length);
+                                }
+                            });
                         });
                     } else if (nomesIA === null) {
-                        alert("A chave informada foi rejeitada pela Groq. Verifique a internet e o console de rastreio.");
+                        alert("A chave informada foi rejeitada pela Groq ou houve falha na extração. Verifique o console de rastreio.");
                         btn.style.display = "block";
                         scanContainer.style.display = "none";
                         return;
