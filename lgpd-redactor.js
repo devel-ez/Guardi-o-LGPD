@@ -1,16 +1,23 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos 
+    // 1. Estilos (Atualizados para Botões Externos e UI Limpa)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
-        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 2147483647 !important; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
+        
+        .tarja-wrapper { position: absolute; z-index: 2147483647 !important; display: flex; flex-direction: column; align-items: center; }
+        
+        .tarja-controls { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding-bottom: 4px; }
+        
+        .tarja-lgpd-custom { position: relative; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
+        
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
         .lgpd-progress-fill { height: 100%; background: #10b981; transition: width 0.1s ease; border-radius: 4px; }
-        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
+        
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         .btn-tarja-ctrl.confirmar { background: #059669; }
@@ -25,18 +32,18 @@
     let objectUrl = null; 
     let originalArrayBuffer = null;
 
-    // 2. Painel Lateral UI (Minimalista)
+    // 2. Painel Lateral UI (Minimalista e Direto)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
-    root.style = 'position:fixed;top:15px;right:15px;width:370px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
+    root.style = 'position:fixed;top:15px;right:15px;width:350px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
         <div style="background:#0f172a;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD</span>
+            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD (OFFLINE)</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
-            
+
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
                 <span style="font-size:13px;color:#475569;font-weight:bold;">Arraste o PDF aqui</span>
                 <input type="file" id="lgpd-file-input" accept="application/pdf" style="display:none;" />
@@ -76,7 +83,7 @@
 
     const workspace = document.createElement('div');
     workspace.id = 'lgpd-canvas-workspace';
-    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 400px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
+    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 380px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
     document.body.appendChild(workspace);
 
     function logDebug(msg, tipo = 'info') {
@@ -210,58 +217,70 @@
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
     }
 
+    // --- NOVA INJEÇÃO VISUAL (WRAPPER COM BOTÕES EXTERNOS) ---
     function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tarja-wrapper';
+        if (autoConfirma) wrapper.classList.add('confirmada');
+        wrapper.style.left = left;
+        wrapper.style.top = top;
+
         const tarja = document.createElement('div');
         tarja.className = 'tarja-lgpd-custom';
         if (autoConfirma) tarja.classList.add('confirmada');
-        
-        tarja.style.width = w; tarja.style.height = h;
-        tarja.style.top = top; tarja.style.left = left;
+        tarja.style.width = w; 
+        tarja.style.height = h;
 
         const controls = document.createElement('div');
-        controls.style.cssText = autoConfirma ? "display:none; z-index:10001;" : "display:flex; z-index:10001;";
+        controls.className = 'tarja-controls';
+        controls.style.cssText = autoConfirma ? "display:none;" : "display:flex;";
         
-        const btnConfirmar = document.createElement('button');
-        btnConfirmar.className = 'btn-tarja-ctrl confirmar';
-        btnConfirmar.innerHTML = '✓';
-
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
+        btnRemover.title = "Excluir Tarja";
+
+        const btnConfirmar = document.createElement('button');
+        btnConfirmar.className = 'btn-tarja-ctrl confirmar';
+        btnConfirmar.innerHTML = '✓';
+        btnConfirmar.title = "Confirmar Tarja";
         
         controls.appendChild(btnConfirmar);
         controls.appendChild(btnRemover);
-        tarja.appendChild(controls);
-        pageContainer.appendChild(tarja);
+        
+        wrapper.appendChild(controls);
+        wrapper.appendChild(tarja);
+        pageContainer.appendChild(wrapper);
 
-        btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
-        btnConfirmar.onclick = (e) => {
-            e.stopPropagation();
-            tarja.classList.add('confirmada');
-            controls.style.display = 'none';
+        btnRemover.onclick = (e) => { e.stopPropagation(); wrapper.remove(); };
+        btnConfirmar.onclick = (e) => { 
+            e.stopPropagation(); 
+            tarja.classList.add('confirmada'); 
+            wrapper.classList.add('confirmada');
+            controls.style.display = 'none'; 
         };
-
-        // Permite reativar a edição se clicar na tarja preta confirmada
+        
+        // Clicar na tarja preta permite reeditá-la
         tarja.onclick = (e) => { 
             if (tarja.classList.contains('confirmada')) { 
                 tarja.classList.remove('confirmada'); 
+                wrapper.classList.remove('confirmada');
                 controls.style.display = 'flex'; 
             } 
         };
 
-        // Lógica Avançada de Arrastar (Drag and Drop)
+        // Lógica de Movimentação (Arrastar) ligada ao Wrapper
         let isDragging = false;
         let startX, startY;
         tarja.addEventListener('mousedown', function(e) {
             if (tarja.classList.contains('confirmada')) return;
             const rect = tarja.getBoundingClientRect();
-            // Ignora o arraste se clicar no canto de redimensionar ou nos botões
+            // Evita arrastar quando o clique é no cantinho de redimensionar
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
-            if (e.target.tagName.toLowerCase() === 'button') return;
             
             isDragging = true;
-            startX = e.clientX - tarja.offsetLeft;
-            startY = e.clientY - tarja.offsetTop;
+            startX = e.clientX - wrapper.offsetLeft;
+            startY = e.clientY - wrapper.offsetTop;
         });
         
         document.addEventListener('mousemove', function(e) {
@@ -269,14 +288,14 @@
             let x = e.clientX - startX;
             let y = e.clientY - startY;
             
-            // Impede que a tarja seja arrastada para fora da página
+            // Trava de segurança: impede que a tarja saia da página
             if (x < 0) x = 0;
-            if (y < 0) y = 0;
+            if (y < 25) y = 25; // Impede que suba demais e esconda os botões fora da página
             if (x + tarja.offsetWidth > pageContainer.offsetWidth) x = pageContainer.offsetWidth - tarja.offsetWidth;
             if (y + tarja.offsetHeight > pageContainer.offsetHeight) y = pageContainer.offsetHeight - tarja.offsetHeight;
 
-            tarja.style.left = `${x}px`;
-            tarja.style.top = `${y}px`;
+            wrapper.style.left = `${x}px`;
+            wrapper.style.top = `${y}px`;
         });
         
         document.addEventListener('mouseup', () => isDragging = false);
@@ -286,7 +305,7 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- A LISTA NEGRA MILITAR (ANTI-FALSOS POSITIVOS) ---
+    // --- A LISTA NEGRA MILITAR ---
     const blacklistGeral = new Set([
         "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
         "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
@@ -324,7 +343,6 @@
         { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
-    // REGRA DE NOME OFFLINE (Captura 2 ou mais palavras Maiúsculas/Versalete)
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
 
     document.getElementById('btn-auto-scan').onclick = async function() {
@@ -356,7 +374,6 @@
                     const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
                     const linhasObj = [];
 
-                    // --- O PULO DO GATO: FATIAMENTO GEOMÉTRICO (Y-CLUSTERING) ---
                     if (validItems.length > 10) {
                         validItems.forEach(item => {
                             const itemY = item.transform[5];
@@ -400,11 +417,11 @@
                         });
                     }
 
-                    // --- INJEÇÃO DIRETA VISUAL ---
+                    // --- ETAPA 1 E 2: INJEÇÃO DIRETA NA TELA ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
-                        // 1. Injeção de Dados Matemáticos (Docs, CEPs, Assinaturas)
+                        // 1. Dados Matemáticos (Docs, CEPs, Assinaturas)
                         regexesBusca.forEach(regObj => {
                             let match;
                             regObj.r.lastIndex = 0;
@@ -419,8 +436,6 @@
                                 }
 
                                 if (!hasOverlap) {
-                                    logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                    
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + cleanStr.length - 1;
                                     while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
@@ -458,8 +473,8 @@
                                             w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
 
-                                        // Todos nascem não confirmados (vermelhos) para o usuário revisar
-                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, false);
+                                        let safeY = Math.max(25, finalY);
+                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${safeY}px`, `${Math.max(0, finalX)}px`, false);
                                         tarjasDesenhadas++;
                                     }
                                     for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
@@ -467,7 +482,7 @@
                             }
                         });
 
-                        // 2. Injeção de Nomes Suspeitos
+                        // 2. Nomes Suspeitos (Injeta direto, sem lista na lateral)
                         let matchNome;
                         regexNomesOffline.lastIndex = 0;
                         while ((matchNome = regexNomesOffline.exec(linha.texto)) !== null) {
@@ -488,8 +503,6 @@
                             }
 
                             if (!isBlacklisted) {
-                                logDebug(`[Nome Encontrado] Desenhando tarja em: ${cleanNome}`, 'suspect');
-                                
                                 let startIdx = linha.texto.indexOf(cleanNome, matchNome.index);
                                 if (startIdx === -1) startIdx = matchNome.index;
                                 let endIdx = startIdx + cleanNome.length - 1;
@@ -512,7 +525,10 @@
                                         h = first.bbox.y1 - first.bbox.y0 + 8;
                                     }
                                     
-                                    injetarTarjaNaPagina(pageContainer, `${Math.max(x1 - x0 + 10, 15)}px`, `${h}px`, `${Math.max(0, y0 - h + 2)}px`, `${Math.max(0, x0 - 5)}px`, false);
+                                    let finalY = y0 - h + 2;
+                                    let safeY = Math.max(25, finalY);
+                                    
+                                    injetarTarjaNaPagina(pageContainer, `${Math.max(x1 - x0 + 10, 15)}px`, `${h}px`, `${safeY}px`, `${Math.max(0, x0 - 5)}px`, false);
                                     tarjasDesenhadas++;
                                 }
                                 
@@ -525,12 +541,13 @@
             
             scanContainer.style.display = "none";
             
+            // Fim do Processo
             if (tarjasDesenhadas > 0) {
                 document.getElementById('btn-confirm-all').style.display = 'block';
-                logDebug(`\n[AGUARDANDO REVISÃO] ${tarjasDesenhadas} tarjas desenhadas na tela.`);
-                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre possíveis nomes e documentos no PDF.\n\nRevise a página, arraste ou redimensione se precisar, e clique no botão verde da tarja para confirmar. Para confirmar todas de uma vez, clique em "Confirmar Todas as Tarjas" no menu lateral.`);
+                logDebug(`\n[SUCESSO] ${tarjasDesenhadas} tarjas pendentes desenhadas.`, 'info');
+                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre possíveis nomes e documentos.\n\nRevise o PDF: arraste ou redimensione se precisar, e clique no botão verde de cada tarja para fixá-la.\n\nSe a página estiver perfeita, clique em "Confirmar Todas as Tarjas" no menu lateral.`);
             } else {
-                alert("Mapeamento concluído. O sistema não encontrou Nomes Próprios ou Documentos nesta página.");
+                alert("Mapeamento concluído. O sistema não encontrou Nomes ou Documentos nesta página.");
                 btn.style.display = "block";
             }
 
@@ -541,14 +558,15 @@
         }
     };
 
-    // Botão de Confirmação em Massa
+    // Botão de Confirmação em Massa (Agora busca na classe Wrapper)
     document.getElementById('btn-confirm-all').onclick = function() {
-        const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
+        const pendentes = workspace.querySelectorAll('.tarja-wrapper:not(.confirmada) .confirmar');
         pendentes.forEach(btn => btn.click());
-        logDebug(`[SUCESSO] ${pendentes.length} tarjas confirmadas em massa.`);
+        logDebug(`[AÇÃO] ${pendentes.length} tarjas confirmadas em massa.`, 'match');
         this.style.display = 'none';
     };
 
+    // A Mágica de Salvar PDF buscando do Wrapper
     document.getElementById('btn-save-pdf').onclick = async function() {
         const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
         if (tarjas.length === 0) { alert("Não há tarjas pretas (confirmadas) no documento para salvar."); return; }
@@ -564,22 +582,35 @@
             try { form.flatten(); logDebug("[Segurança] Assinaturas achatadas."); } catch(err) {}
 
             const paginasPdfLib = pdfDoc.getPages();
+            
             tarjas.forEach(tarja => {
-                const container = tarja.parentElement;
+                const wrapper = tarja.parentElement;
+                const container = wrapper.parentElement;
                 const pageNum = parseInt(container.getAttribute('data-page-number'));
                 const paginaAlvo = paginasPdfLib[pageNum - 1];
                 const { width: pdfWidth } = paginaAlvo.getSize();
+                
                 const scaleX = pdfWidth / container.offsetWidth;
-                const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
-                paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
+                // Busca as coordenadas do topo a partir do Wrapper (que é quem se movimenta)
+                const yPdf = (container.offsetHeight - parseFloat(wrapper.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
+                
+                paginaAlvo.drawRectangle({ 
+                    x: parseFloat(wrapper.style.left) * scaleX, 
+                    y: yPdf, 
+                    width: tarja.offsetWidth * scaleX, 
+                    height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), 
+                    color: PDFLib.rgb(0, 0, 0) 
+                });
             });
+
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: "application/pdf" });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = "documento_tratado_lgpd.pdf";
             link.click();
-        } catch(e) { alert("Erro ao salvar PDF."); } finally {
+            logDebug("[PDF GERADO] Documento seguro baixado com sucesso.");
+        } catch(e) { alert("Erro ao salvar PDF. Cheque o console de rastreio."); } finally {
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
         }
