@@ -1,72 +1,144 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // ==================== ESTILOS ====================
+    // 1. Estilos (Tema Groq)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
-        .tarja-lgpd-custom {
-            position: absolute;
-            background: rgba(239, 68, 68, 0.45);
-            border: 2px dashed #dc2626;
-            cursor: move;
-            z-index: 2147483647 !important;
-            box-sizing: border-box;
-            resize: both;
-            overflow: hidden;
-            min-width: 40px;
-            min-height: 22px;
-            display: flex;
-            justify-content: flex-end;
-            align-items: flex-start;
-            padding: 2px;
-        }
-        .tarja-lgpd-custom.confirmada {
-            background: #000000 !important;
-            border: none !important;
-            resize: none !important;
-            cursor: default !important;
-        }
-        .tarja-buttons {
-            display: flex; gap: 4px; background: rgba(0,0,0,0.7); padding: 2px; border-radius: 4px;
-        }
-        .btn-tarja {
-            width: 22px; height: 22px; font-size: 12px; font-weight: bold;
-            border: none; border-radius: 4px; cursor: pointer; color: white;
-        }
-        .btn-confirmar { background: #059669; }
-        .btn-remover { background: #dc2626; }
+        .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 2147483647 !important; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
+        .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
+        .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
+        .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
+        .lgpd-progress-fill { height: 100%; background: #f43f5e; transition: width 0.1s ease; border-radius: 4px; }
+        .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
+        .btn-tarja-ctrl:hover { transform: scale(1.1); }
+        .btn-tarja-ctrl.remover { background: #dc2626; }
         
-        #lgpd-canvas-workspace {
-            position: fixed; top: 0; left: 0; width: calc(100vw - 420px); height: 100vh;
-            overflow: auto; background: #525659; z-index: 999998; display: none;
-            padding: 20px 40px; box-sizing: border-box;
-        }
-        .pdf-page-container {
-            position: relative; margin: 0 auto 24px auto; box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-            background: #fff; display: block;
-        }
-        .pdf-page-container canvas { display: block; width: 100%; height: auto; }
-        .lgpd-name-list { max-height: 240px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; }
-        .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
+        .lgpd-name-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
+        .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+        .lgpd-name-item input { cursor: pointer; }
+        .lgpd-name-item:hover { background: #f8fafc; }
+        
+        #lgpd-debug-log::-webkit-scrollbar, .lgpd-name-list::-webkit-scrollbar { width: 6px; }
+        #lgpd-debug-log::-webkit-scrollbar-thumb, .lgpd-name-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     `;
     document.head.appendChild(style);
 
-    // ==================== VARIÁVEIS GLOBAIS ====================
+    let pdfDocInstance = null; 
     let globalPdfJsDoc = null;
-    let objectUrl = null;
+    let objectUrl = null; 
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
-    let isScanning = false;
 
-    // ==================== CARREGAR BIBLIOTECAS ====================
+    // 2. Painel Lateral UI
+    const root = document.createElement('div');
+    root.id = 'lgpd-redactor-root';
+    root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
+    
+    root.innerHTML = `
+        <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
+            <span style="font-weight:bold;font-size:14px;">⚡ GROQ GUARDIÃO (LLama 3.3)</span>
+            <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
+        </div>
+        <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
+            
+            <div style="background:#fff1f2; border:1px solid #fecdd3; padding:10px; border-radius:6px; font-size:11px; color:#be123c;">
+                <b>Conexão Groq AI (100% Grátis):</b> Cole sua chave API (gsk_...).
+                <input type="password" id="groq-api-key" placeholder="Cole a Chave da API aqui (gsk_...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #fecdd3; border-radius:4px; font-size:11px;" />
+            </div>
+
+            <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
+                <span style="font-size:13px;color:#475569;font-weight:bold;">Arraste o PDF aqui</span>
+                <input type="file" id="lgpd-file-input" accept="application/pdf" style="display:none;" />
+            </div>
+
+            <div id="lgpd-load-progress-container" style="display:none;background:#fff;border:1px solid #e2e8f0;padding:16px;border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;font-weight:bold;">
+                    <span id="lgpd-load-status">Processando...</span>
+                    <span id="lgpd-load-percent">0%</span>
+                </div>
+                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#f43f5e;"></div></div>
+            </div>
+
+            <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(244, 63, 94, 0.3);">🚀 1. Analisar com IA Groq</button>
+                
+                <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
+                        <span id="lgpd-scan-status">Iniciando IA...</span>
+                        <span id="lgpd-scan-percent">0%</span>
+                    </div>
+                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#f43f5e;"></div></div>
+                </div>
+
+                <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
+                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 IA Encontrou (Marque as Pessoas Físicas):</span>
+                    <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
+                    <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
+                </div>
+
+                <hr style="border:0;border-top:1px solid #e2e8f0;margin:5px 0;">
+                <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);">💾 3. SALVAR PDF SEGURO</button>
+                <button id="btn-new-doc" style="width:100%;padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">📄 Carregar Novo Documento</button>
+                
+                <button id="btn-toggle-log" style="width:100%;padding:8px;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">💻 Exibir Console de Rastreio</button>
+                <div id="lgpd-debug-log" style="display:none; height:120px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA IA ATIVADO...<br></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(root);
+
+    const savedKey = localStorage.getItem('lgpd_groq_api_key');
+    if (savedKey) document.getElementById('groq-api-key').value = savedKey;
+
+    const workspace = document.createElement('div');
+    workspace.id = 'lgpd-canvas-workspace';
+    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 420px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
+    document.body.appendChild(workspace);
+
+    function logDebug(msg, tipo = 'info') {
+        const logDiv = document.getElementById('lgpd-debug-log');
+        if (logDiv) {
+            let cor = '#10b981'; 
+            if (tipo === 'match') cor = '#f59e0b'; 
+            if (tipo === 'error') cor = '#ef4444'; 
+            if (tipo === 'suspect') cor = '#fb7185'; 
+            if (tipo === 'skip') cor = '#94a3b8';
+            logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        console.log(msg);
+    }
+
+    document.getElementById('btn-toggle-log').onclick = function() {
+        const logDiv = document.getElementById('lgpd-debug-log');
+        if (logDiv.style.display === 'none') {
+            logDiv.style.display = 'block';
+            this.style.background = '#334155';
+            this.style.color = '#fff';
+        } else {
+            logDiv.style.display = 'none';
+            this.style.background = '#1e293b';
+            this.style.color = '#94a3b8';
+        }
+    };
+
+    document.getElementById('close-lgpd-ui').onclick = () => {
+        root.remove(); workspace.remove();
+        if(objectUrl) URL.revokeObjectURL(objectUrl);
+        const loader = document.getElementById('lgpd-script-loader');
+        if (loader) loader.remove();
+    };
+
     async function carregarDependencias() {
         try {
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
         } catch (err) {
-            alert("Erro ao carregar as bibliotecas PDF. Verifique sua conexão.");
+            logDebug("Erro ao carregar bibliotecas.", 'error');
+            alert("Erro ao carregar as bibliotecas do CDN. Verifique a internet e tente CTRL+F5.");
         }
     }
 
@@ -76,108 +148,143 @@
         });
     }
 
-    carregarDependencias(); // Inicia o carregamento logo ao abrir o script
+    const dropzone = document.getElementById('lgpd-upload-area');
+    const fileInput = document.getElementById('lgpd-file-input');
 
-    // ==================== INTERFACE ====================
-    const root = document.createElement('div');
-    root.id = 'lgpd-redactor-root';
-    root.style.cssText = `position: fixed; top: 15px; right: 15px; width: 390px; height: 95vh; background: #fff; z-index: 999999; box-shadow: 0 10px 30px rgba(0,0,0,0.25); border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; flex-direction: column; border: 1px solid #e0e0e0; overflow: hidden;`;
+    dropzone.onclick = () => fileInput.click();
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); });
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length > 0) processarArquivo(e.dataTransfer.files[0]);
+    });
+    fileInput.onchange = (e) => {
+        if (e.target.files.length > 0) processarArquivo(e.target.files[0]);
+    };
 
-    root.innerHTML = `
-        <div style="background:#1e293b;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-weight:bold;font-size:14px;">⚡ GROQ GUARDIÃO LGPD</span>
-            <span id="close-lgpd-ui" style="cursor:pointer;font-size:18px;">✕</span>
-        </div>
-        <div style="padding:15px;flex:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;">
-            <div style="background:#fff1f2; border:1px solid #fecdd3; padding:10px; border-radius:6px;">
-                <div style="font-size:11px; color:#be123c; margin-bottom:8px;"><b>🔑 Groq API Key</b></div>
-                <input type="password" id="groq-api-key" placeholder="gsk_..." style="width:100%; padding:8px; border:1px solid #fecdd3; border-radius:4px; font-size:11px;"/>
-            </div>
+    document.getElementById('btn-new-doc').onclick = () => {
+        workspace.innerHTML = "";
+        workspace.style.display = 'none';
+        document.getElementById('lgpd-actions-panel').style.display = 'none';
+        document.getElementById('painel-revisao-nomes').style.display = 'none';
+        document.getElementById('lgpd-upload-area').style.display = 'flex';
+        document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA IA ATIVADO...<br>";
+        pdfDocInstance = null;
+        globalPdfJsDoc = null;
+        originalArrayBuffer = null;
+        mapNomesSuspeitos.clear();
+        if(objectUrl) URL.revokeObjectURL(objectUrl);
+        fileInput.value = ""; 
+    };
 
-            <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:30px;text-align:center;background:#fff;cursor:pointer;">
-                <div style="font-size:32px;margin-bottom:8px;">📄</div>
-                <span style="font-size:14px;color:#475569;font-weight:bold;">Arraste o PDF aqui ou clique</span>
-                <input type="file" id="lgpd-file-input" accept="application/pdf" style="display:none;"/>
-            </div>
+    async function processarArquivo(file) {
+        if (file.type !== "application/pdf") { alert("Selecione um PDF."); return; }
+        dropzone.style.display = 'none';
+        const loadContainer = document.getElementById('lgpd-load-progress-container');
+        loadContainer.style.display = 'block';
+        logDebug(`Carregando: ${file.name}`);
+        await new Promise(r => setTimeout(r, 50)); 
 
-            <div id="lgpd-load-progress-container" style="display:none;">
-                <div id="lgpd-load-status" style="font-size:12px;font-weight:bold;margin-bottom:8px;">Carregando PDF...</div>
-                <div style="background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-load-bar" style="height:100%;width:0%;background:#f43f5e;border-radius:4px;"></div></div>
-            </div>
+        try {
+            originalArrayBuffer = await file.arrayBuffer();
+            pdfDocInstance = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
+            objectUrl = URL.createObjectURL(file);
+            globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
+            await renderizarDocumento(loadContainer);
+        } catch (err) {
+            logDebug("Falha ao abrir PDF.", 'error');
+        }
+    }
 
-            <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">🚀 1. Analisar com IA</button>
-                <button id="btn-add-manual" style="padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">➕ Tarja Manual</button>
-                
-                <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
-                    <div id="lgpd-scan-status" style="font-size:11px;margin-bottom:6px;">Processando...</div>
-                    <div style="background:#e2e8f0;height:6px;border-radius:3px;"><div id="lgpd-scan-bar" style="height:100%;width:0%;background:#f43f5e;"></div></div>
-                </div>
+    async function renderizarDocumento(loadContainer) {
+        workspace.innerHTML = ""; 
+        workspace.style.display = 'flex';
+        const loadStatus = document.getElementById('lgpd-load-status');
+        const loadPercent = document.getElementById('lgpd-load-percent');
+        const loadBar = document.getElementById('lgpd-load-bar');
+        const totalPages = globalPdfJsDoc.numPages;
 
-                <div id="painel-revisao-nomes" style="display:none;flex-direction:column;">
-                    <span style="font-weight:bold;margin-bottom:8px;">Nomes encontrados:</span>
-                    <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
-                    <button id="btn-aplicar-nomes" style="padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;font-weight:bold;margin-top:8px;cursor:pointer;">✅ Aplicar Tarjas Selecionadas</button>
-                </div>
+        for (let i = 1; i <= totalPages; i++) {
+            loadStatus.innerText = `Renderizando pág. ${i} de ${totalPages}...`;
+            let pct = Math.round((i / totalPages) * 100);
+            loadBar.style.width = `${pct}%`;
+            loadPercent.innerText = `${pct}%`;
+            await new Promise(r => setTimeout(r, 20));
 
-                <button id="btn-confirm-all-tarjas" style="padding:10px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">✔️ Confirmar Todas Tarjas</button>
-                <button id="btn-save-pdf" style="padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">💾 3. SALVAR PDF ANONIMIZADO</button>
-                <button id="btn-new-doc" style="padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;">📄 Novo Documento</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(root);
+            const page = await globalPdfJsDoc.getPage(i);
+            const viewport = page.getViewport({ scale: 1.5 });
+            const pageContainer = document.createElement('div');
+            pageContainer.className = 'pdf-page-container';
+            pageContainer.setAttribute('data-page-number', i);
+            pageContainer.style.width = `${viewport.width}px`;
+            pageContainer.style.height = `${viewport.height}px`;
 
-    // Carregar chave salva se houver
-    const savedKey = localStorage.getItem('lgpd_groq_api_key');
-    if (savedKey) document.getElementById('groq-api-key').value = savedKey;
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            pageContainer.appendChild(canvas);
+            workspace.appendChild(pageContainer);
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+        }
+        loadContainer.style.display = 'none';
+        document.getElementById('lgpd-actions-panel').style.display = 'flex';
+    }
 
-    const workspace = document.createElement('div');
-    workspace.id = 'lgpd-canvas-workspace';
-    document.body.appendChild(workspace);
+    function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
+        const tarja = document.createElement('div');
+        tarja.className = 'tarja-lgpd-custom';
+        if (autoConfirma) tarja.classList.add('confirmada');
+        
+        tarja.style.width = w; tarja.style.height = h;
+        tarja.style.top = top; tarja.style.left = left;
 
-    // ==================== FUNÇÕES BÁSICAS E IA ====================
-    function logDebug(msg) { console.log(`[Guardião] ${msg}`); }
+        const controls = document.createElement('div');
+        controls.style.cssText = autoConfirma ? "display:none; z-index:10001;" : "display:flex; z-index:10001;";
+        const btnRemover = document.createElement('button');
+        btnRemover.className = 'btn-tarja-ctrl remover';
+        btnRemover.innerHTML = '✕';
+        
+        controls.appendChild(btnRemover);
+        tarja.appendChild(controls);
+        pageContainer.appendChild(tarja);
+
+        btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
+        tarja.onclick = (e) => { 
+            if (tarja.classList.contains('confirmada')) { 
+                tarja.classList.remove('confirmada'); 
+                controls.style.display = 'flex'; 
+            } 
+        };
+    }
 
     function removeAcentos(str) {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    const ranksToTrim = new Set(["MAJ","TEN","CEL","TCEL","INF","INT","COM","ENG","CAV","QEM","BPE","PREC","RCG","GAC","PQDT","CMB","SUP","LOG","HGU","PEL","PELIN","CIA","BEC","MTZ","MEC","BGP","GMF","BFV","BAC","OP","ESP","AP","GAAAE","AV","EX","BIB","RCB","RCC","CA","CISM","COUD","RINCAO","MUN","CTA","CIGE","CGEO","BCSV","ESEQEX","ESACOSAAE","ACAD","ESIE","ESEFEX","CPOR","BIBLIEX","MNMSGM","CEO","CGCFEX","GEN","DIV","CHEFE","BIS","CMDO","FRON","QEMA","QSG","TENCEL","GAB","CMT","RM","CARL","DIRECAO","CHEFIA","ART","MED","MB","FARM","DENT","VET","QAO","POR","DOS","DE","DA","DO","DAS","SR","SRA","DR","DRA"]);
-    
-    function limparNome(matchStr) {
-        let words = matchStr.split(/\s+/);
-        while (words.length > 0) {
-            let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]]/g, ''));
-            if (ranksToTrim.has(limpa) || limpa.length <= 2) words.shift();
-            else break;
-        }
-        while (words.length > 0) {
-            let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]]/g, ''));
-            if (ranksToTrim.has(limpa) || limpa.length <= 2) words.pop();
-            else break;
-        }
-        return words.join(' ');
-    }
-
+    // --- CÉREBRO DA IA GROQ (FALLBACK DE MODELOS LLAMA 3 ATUALIZADO) ---
     async function getNamesFromIA(textoDaPagina, apiKey) {
         const prompt = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
 Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
 
 REGRAS ABSOLUTAS SOB PENA DE FALHA:
-1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela, palavras isoladas ou identificadores de colunas.
-2. É ESTRITAMENTE PROIBIDO extrair siglas de especialidades militares.
-3. NÃO inclua a patente junto com o nome.
+1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela, palavras isoladas ou identificadores de colunas (Exemplos do que NÃO extrair: "NOME", "POSTO", "A/Q/SV", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA").
+2. É ESTRITAMENTE PROIBIDO extrair siglas de especialidades militares (Exemplos do que NÃO extrair: "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", "QEMEL", "QEMFC").
+3. NÃO inclua a patente junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
 4. NÃO inclua empresas (LTDA, ME), órgãos públicos, batalhões ou secretarias.
-5. Copie o nome de pessoa física EXATAMENTE como aparece no texto lido.
+5. Copie o nome de pessoa física EXATAMENTE como aparece no texto lido pelo OCR.
 6. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
 
-Retorne APENAS um array JSON contendo as strings dos nomes.
+Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
 Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
-        const modelosGroq = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+        // Matriz atualizada: Do modelo Llama 3.3 Versatile até os modelos mais estáveis.
+        const modelosGroq = [
+            'llama-3.3-70b-versatile', 
+            'llama-3.1-8b-instant', 
+            'mixtral-8x7b-32768'
+        ];
 
         for (let modelName of modelosGroq) {
+            logDebug(`[IA] Conectando ao modelo Groq: ${modelName}...`, 'info');
             try {
                 const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
@@ -196,173 +303,334 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                 });
 
                 const data = await response.json();
-                if (data.error) continue;
+
+                if (data.error) {
+                    logDebug(`[Aviso API Groq - ${modelName}] ${data.error.message}`, 'skip');
+                    continue; // Erro no modelo (ex: descontinuado), tenta o próximo do array
+                }
 
                 if (data.choices && data.choices[0].message && data.choices[0].message.content) {
                     let responseText = data.choices[0].message.content.trim();
                     let jsonMatch = responseText.match(/\[.*\]/s);
-                    if (jsonMatch) return JSON.parse(jsonMatch[0]);
-                    return JSON.parse(responseText); 
+                    if (jsonMatch) {
+                        return JSON.parse(jsonMatch[0]);
+                    } else {
+                        return JSON.parse(responseText); 
+                    }
                 }
             } catch (e) {
-                console.error(`Falha no modelo ${modelName}`, e);
+                logDebug(`[Erro de Rede - ${modelName}] ${e.message}`, "error");
             }
         }
+        
+        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos da matriz de fallback.`, "error");
         return null;
     }
 
-    // ==================== MANIPULAÇÃO DA TARJA NA TELA ====================
-    function injetarTarja(pageContainer, x, y, width, height, autoConfirma = false) {
-        const tarja = document.createElement('div');
-        tarja.className = 'tarja-lgpd-custom';
-        tarja.style.left = `${x}px`;
-        tarja.style.top = `${y}px`;
-        tarja.style.width = `${width}px`;
-        tarja.style.height = `${height}px`;
+    // Regras Matemáticas Seguras
+    const regexesBusca = [
+        { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
+        { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
+        { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
+    ];
 
-        if (autoConfirma) {
-            tarja.classList.add('confirmada');
-        } else {
-            const btns = document.createElement('div');
-            btns.className = 'tarja-buttons';
-            btns.innerHTML = `<button class="btn-tarja btn-confirmar">✓</button><button class="btn-tarja btn-remover">✕</button>`;
-            
-            btns.querySelector('.btn-confirmar').onclick = (e) => { 
-                e.stopPropagation(); 
-                tarja.classList.add('confirmada'); 
-                btns.remove(); 
-            };
-            btns.querySelector('.btn-remover').onclick = (e) => { 
-                e.stopPropagation(); 
-                tarja.remove(); 
-            };
-            tarja.appendChild(btns);
-        }
-
-        // Sistema de Arrasto (Drag) para a tarja
-        let isDragging = false, startX, startY;
-        tarja.addEventListener('mousedown', (e) => {
-            if (tarja.classList.contains('confirmada') || e.target.tagName.toLowerCase() === 'button') return;
-            // Se clicar no canto inferior direito (resize), não arrasta
-            const rect = tarja.getBoundingClientRect();
-            if (e.clientX > rect.right - 15 && e.clientY > rect.bottom - 15) return;
-            
-            isDragging = true;
-            startX = e.clientX - tarja.offsetLeft;
-            startY = e.clientY - tarja.offsetTop;
-        });
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            tarja.style.left = `${e.clientX - startX}px`;
-            tarja.style.top = `${e.clientY - startY}px`;
-        });
-        document.addEventListener('mouseup', () => isDragging = false);
-
-        pageContainer.appendChild(tarja);
-    }
-
-    // ==================== COORDENADAS ====================
-    async function extrairTextoComPosicao(page) {
-        const textContent = await page.getTextContent();
-        return textContent.items.filter(item => item.str && item.str.trim().length > 2);
-    }
-
-    function encontrarCoordenadasNome(items, nomeBuscado, viewport) {
-        const coords = [];
-        const nomeUpper = nomeBuscado.toUpperCase().trim();
-        const scale = viewport.scale;
-
-        for (let item of items) {
-            const texto = item.str.toUpperCase();
-            let startIndex = 0;
-
-            while ((startIndex = texto.indexOf(nomeUpper, startIndex)) !== -1) {
-                const charWidth = item.width / Math.max(1, item.str.length);
-                
-                const x = (item.transform[4] + startIndex * charWidth) * scale;
-                const y = (viewport.height - item.transform[5] - item.height) * scale;
-
-                coords.push({
-                    x: Math.max(0, x - 3),
-                    y: Math.max(0, y - 2),
-                    width: (nomeUpper.length * charWidth * scale) + 12,
-                    height: (item.height * scale) + 8,
-                    pageContainer: null
-                });
-
-                startIndex += nomeUpper.length;
-            }
-        }
-        return coords;
-    }
-
-    // ==================== CARREGAMENTO DO PDF ====================
-    async function processarArquivo(file) {
-        if (file.type !== "application/pdf") return alert("Selecione um PDF.");
-        document.getElementById('lgpd-upload-area').style.display = 'none';
-        document.getElementById('lgpd-load-progress-container').style.display = 'block';
-
-        originalArrayBuffer = await file.arrayBuffer();
-        objectUrl = URL.createObjectURL(file);
-        globalPdfJsDoc = await window.pdfjsLib.getDocument(objectUrl).promise;
-        
-        workspace.innerHTML = "";
-        workspace.style.display = 'block';
-
-        const loadBar = document.getElementById('lgpd-load-bar');
-        
-        for (let i = 1; i <= globalPdfJsDoc.numPages; i++) {
-            loadBar.style.width = `${Math.round((i / globalPdfJsDoc.numPages) * 100)}%`;
-            const page = await globalPdfJsDoc.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
-            
-            const pageContainer = document.createElement('div');
-            pageContainer.className = 'pdf-page-container';
-            pageContainer.setAttribute('data-page-number', i);
-            pageContainer.style.width = `${viewport.width}px`;
-            pageContainer.style.height = `${viewport.height}px`;
-
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            pageContainer.appendChild(canvas);
-            workspace.appendChild(pageContainer);
-
-            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-        }
-
-        document.getElementById('lgpd-load-progress-container').style.display = 'none';
-        document.getElementById('lgpd-actions-panel').style.display = 'flex';
-    }
-
-    // ==================== AÇÕES DOS BOTÕES ====================
     document.getElementById('btn-auto-scan').onclick = async function() {
         const apiKey = document.getElementById('groq-api-key').value.trim();
-        if (!apiKey) return alert("Insira sua chave Groq!");
+        if (!apiKey) {
+            alert("Atenção! Cole a sua Chave da API do Groq no campo indicado.");
+            return;
+        }
         localStorage.setItem('lgpd_groq_api_key', apiKey);
 
-        isScanning = true;
+        const btn = this;
+        const scanContainer = document.getElementById('lgpd-scan-progress-container');
+        const scanStatus = document.getElementById('lgpd-scan-status');
+        const scanBar = document.getElementById('lgpd-scan-bar');
+        
+        btn.style.display = "none"; 
+        scanContainer.style.display = "block";
+        document.getElementById('lgpd-debug-log').style.display = 'block';
+        
         mapNomesSuspeitos.clear();
 
-        const scanContainer = document.getElementById('lgpd-scan-progress-container');
-        scanContainer.style.display = 'block';
+        try {
+            const totalPages = globalPdfJsDoc.numPages;
+            logDebug("\n[INÍCIO] Mapeamento Híbrido Iniciado.");
 
-        const totalPages = globalPdfJsDoc.numPages;
-        const todosNomes = new Set();
-        const scanBar = document.getElementById('lgpd-scan-bar');
+            for (let i = 1; i <= totalPages; i++) {
+                scanStatus.innerText = `Processando Pág. ${i}/${totalPages}...`;
+                scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
+                
+                const page = await globalPdfJsDoc.getPage(i);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const textContent = await page.getTextContent();
+                const pageContainer = workspace.querySelector(`.pdf-page-container[data-page-number="${i}"]`);
+                
+                if (pageContainer) {
+                    const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
+                    let textoIntegralDaPagina = "";
+                    const linhasObj = [];
 
-        for (let i = 1; i <= totalPages; i++) {
-            document.getElementById('lgpd-scan-status').innerText = `Analisando página ${i}/${totalPages}...`;
-            scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
+                    if (validItems.length > 10) {
+                        let linhaAtual = null;
 
-            const page = await globalPdfJsDoc.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const pageContainer = workspace.querySelector(`[data-page-number="${i}"]`);
+                        validItems.sort((a, b) => {
+                            const dy = b.transform[5] - a.transform[5];
+                            if (Math.abs(dy) > 5) return dy;
+                            return a.transform[4] - b.transform[4];
+                        }).forEach(item => {
+                            const itemY = item.transform[5];
+                            if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
+                                linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
+                                linhasObj.push(linhaAtual);
+                            }
+                            
+                            let sep = '';
+                            if (linhaAtual.tokens.length > 0) {
+                                const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
+                                const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
+                                if (distX > 35) sep = ' | ';
+                                else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
+                            }
+                            linhaAtual.tokens.push(item);
+                            
+                            for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
+                            for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
+                            
+                            linhaAtual.texto += sep + item.str;
+                        });
 
-            const textItems = await extrairTextoComPosicao(page);
-            const texto = textItems.map(t => t.str).join(" ");
+                        textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
+                    } else {
+                        scanStatus.innerText = `Extraindo imagem Pág. ${i}...`;
+                        if (typeof Tesseract === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
+                        const canvas = pageContainer.querySelector('canvas');
+                        const { data } = await Tesseract.recognize(canvas, 'por');
+                        textoIntegralDaPagina = data.text;
+                        
+                        data.lines.forEach(line => {
+                            let obj = { texto: line.text, charMap: [] };
+                            for(let c=0; c<line.text.length; c++) obj.charMap.push({char: line.text[c], item: line});
+                            linhasObj.push(obj);
+                        });
+                    }
 
-            const nomesIA = await getNamesFromIA(texto, apiKey); 
+                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA ---
+                    linhasObj.forEach(linha => {
+                        const overlaps = new Uint8Array(linha.texto.length);
+                        
+                        regexesBusca.forEach(regObj => {
+                            let match;
+                            regObj.r.lastIndex = 0;
+                            while ((match = regObj.r.exec(linha.texto)) !== null) {
+                                let cleanStr = match[1] || match[0];
+                                let matchIdx = linha.texto.indexOf(cleanStr, match.index);
+                                if (matchIdx === -1) matchIdx = match.index;
 
-            if (nomesIA) {
-                for (let nome of nomesIA)
+                                let hasOverlap = false;
+                                for (let k = 0; k < cleanStr.length; k++) {
+                                    if (overlaps[matchIdx + k]) { hasOverlap = true; break; }
+                                }
+
+                                if (!hasOverlap) {
+                                    logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
+                                    
+                                    let startIndex = matchIdx;
+                                    let endIndex = matchIdx + cleanStr.length - 1;
+                                    while (startIndex <= endIndex && (!linha.charMap[startIndex].item || linha.charMap[startIndex].char.trim() === '')) startIndex++;
+                                    while (endIndex >= startIndex && (!linha.charMap[endIndex].item || linha.charMap[endIndex].char.trim() === '')) endIndex--;
+                                    
+                                    if (startIndex <= endIndex) {
+                                        let bbox = {x0: 9999, y0: 9999, x1: -1, y1: -1};
+                                        let h_font = 10;
+
+                                        if (linha.charMap[startIndex].item.transform) {
+                                            const first = linha.charMap[startIndex].item;
+                                            const last = linha.charMap[endIndex].item;
+                                            const [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                            const [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                            bbox.x0 = x0; bbox.y0 = y0; bbox.x1 = x1; bbox.y1 = y0; 
+                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                            h_font = fs * viewport.scale;
+                                        } else {
+                                            const item = linha.charMap[startIndex].item;
+                                            bbox.x0 = item.bbox.x0; bbox.y0 = item.bbox.y1; bbox.x1 = item.bbox.x1; bbox.y1 = item.bbox.y1;
+                                            h_font = item.bbox.y1 - item.bbox.y0;
+                                        }
+
+                                        let isAss = (regObj.tipo === 'ass');
+                                        let isGovBr = /gov\.?b\s*r|assinatura\s+eletr[ôo]nica|Documento\s+assinado/i.test(cleanStr);
+                                        let w_val, h_val, finalX, finalY;
+
+                                        if (isAss) {
+                                            if (isGovBr) { w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; } 
+                                            else { w_val = Math.max(bbox.x1 - bbox.x0 + 150, 250); h_val = Math.max(h_font + 30, 60); finalX = bbox.x0 - 20; finalY = bbox.y0 - 15; }
+                                        } else {
+                                            w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
+                                        }
+
+                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
+                                    }
+                                    for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
+                                }
+                            }
+                        });
+                    });
+
+                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
+                    scanStatus.innerText = `Consultando IA Groq na Pág. ${i}...`;
+                    const nomesIA = await getNamesFromIA(textoIntegralDaPagina, apiKey);
+                    
+                    if (nomesIA && Array.isArray(nomesIA)) {
+                        nomesIA.forEach(nome => {
+                            let cleanNome = nome.toUpperCase().trim();
+                            
+                            if(cleanNome.split(/\s+/).length > 1) {
+                                logDebug(`[IA Groq] Pessoa Encontrada: ${cleanNome}`, 'suspect');
+                                
+                                // Correção Mestra de Mapeamento
+                                linhasObj.forEach(linha => {
+                                    let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
+                                    let nomeSearch = removeAcentos(cleanNome);
+                                    
+                                    let idx = textoLinhaLimpo.indexOf(nomeSearch);
+                                    while (idx !== -1) {
+                                        if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
+                                        
+                                        let start = idx; let end = idx + cleanNome.length - 1;
+                                        while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
+                                        while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
+                                        
+                                        if(start <= end) {
+                                            const first = linha.charMap[start].item;
+                                            const last = linha.charMap[end].item;
+                                            
+                                            let x0, y0, x1, h;
+                                            if (first.transform) {
+                                                [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                                [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                                const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                                h = Math.max((fs * viewport.scale) + 8, 12);
+                                            } else {
+                                                x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
+                                                h = first.bbox.y1 - first.bbox.y0 + 8;
+                                            }
+                                            
+                                            mapNomesSuspeitos.get(cleanNome).push({
+                                                pageNode: pageContainer,
+                                                w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
+                                            });
+                                        }
+                                        
+                                        idx = textoLinhaLimpo.indexOf(nomeSearch, idx + nomeSearch.length);
+                                    }
+                                });
+                            }
+                        });
+                    } else if (nomesIA === null) {
+                        alert("A chave informada foi rejeitada pela Groq. Verifique a internet e o console de rastreio.");
+                        btn.style.display = "block";
+                        scanContainer.style.display = "none";
+                        return;
+                    }
+                }
+            }
+            
+            scanContainer.style.display = "none";
+            
+            // MONTAGEM DO PAINEL DE REVISÃO HUMANA
+            const painelRevisao = document.getElementById('painel-revisao-nomes');
+            const divLista = document.getElementById('lista-nomes-suspeitos');
+            divLista.innerHTML = ''; 
+            
+            if (mapNomesSuspeitos.size > 0) {
+                const nomesOrdenados = Array.from(mapNomesSuspeitos.keys()).sort();
+                
+                nomesOrdenados.forEach(nome => {
+                    const label = document.createElement('label');
+                    label.className = 'lgpd-name-item';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = nome;
+                    checkbox.checked = true; 
+                    
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(nome));
+                    divLista.appendChild(label);
+                });
+                
+                painelRevisao.style.display = 'flex';
+                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} pessoas para revisão.`);
+                alert(`Leitura IA Concluída!\n\nDocumentos e Assinaturas foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\n\nRevise a lista no painel direito, desmarque quem NÃO deve ser tarjado e clique em "Aplicar Tarjas".`);
+            } else {
+                alert("Mapeamento concluído. A IA não localizou Nomes Próprios na página.");
+                btn.style.display = "block";
+            }
+
+        } catch (e) { 
+            logDebug(`Erro Crítico: ${e.message}`, 'error');
+            scanStatus.innerText = "Erro no escaneamento.";
+            btn.style.display = "block";
+        }
+    };
+
+    document.getElementById('btn-aplicar-nomes').onclick = function() {
+        const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
+        let aplicadas = 0;
+        
+        checkboxes.forEach(chk => {
+            const nomeEscolhido = chk.value;
+            const coordenadasArray = mapNomesSuspeitos.get(nomeEscolhido);
+            
+            if (coordenadasArray) {
+                coordenadasArray.forEach(coord => {
+                    injetarTarjaNaPagina(coord.pageNode, `${coord.w}px`, `${coord.h}px`, `${coord.y}px`, `${coord.x}px`, true);
+                    aplicadas++;
+                });
+            }
+        });
+        
+        logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas.`);
+        document.getElementById('painel-revisao-nomes').style.display = 'none';
+        document.getElementById('btn-auto-scan').style.display = 'block';
+        alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
+    };
+
+    document.getElementById('btn-save-pdf').onclick = async function() {
+        const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
+        if (tarjas.length === 0) { alert("Não há tarjas aplicadas no documento para salvar."); return; }
+        
+        const btn = this;
+        const textoOriginal = btn.innerHTML;
+        btn.innerHTML = "⏳ GERANDO PDF SEGURO...";
+        btn.disabled = true;
+
+        try {
+            const pdfDoc = await PDFLib.PDFDocument.load(originalArrayBuffer.slice(0));
+            const form = pdfDoc.getForm();
+            try { form.flatten(); logDebug("[Segurança] Assinaturas achatadas."); } catch(err) {}
+
+            const paginasPdfLib = pdfDoc.getPages();
+            tarjas.forEach(tarja => {
+                const container = tarja.parentElement;
+                const pageNum = parseInt(container.getAttribute('data-page-number'));
+                const paginaAlvo = paginasPdfLib[pageNum - 1];
+                const { width: pdfWidth } = paginaAlvo.getSize();
+                const scaleX = pdfWidth / container.offsetWidth;
+                const yPdf = (container.offsetHeight - parseFloat(tarja.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
+                paginaAlvo.drawRectangle({ x: parseFloat(tarja.style.left) * scaleX, y: yPdf, width: tarja.offsetWidth * scaleX, height: tarja.offsetHeight * (paginaAlvo.getSize().height / container.offsetHeight), color: PDFLib.rgb(0, 0, 0) });
+            });
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "documento_tratado_lgpd.pdf";
+            link.click();
+        } catch(e) { alert("Erro ao salvar PDF."); } finally {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }
+    };
+
+    carregarDependencias();
+})();
