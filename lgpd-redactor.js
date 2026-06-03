@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Atualizados para Botões Externos e UI Limpa)
+    // 1. Estilos (Tema Dark Offline Militar)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
@@ -32,7 +32,7 @@
     let objectUrl = null; 
     let originalArrayBuffer = null;
 
-    // 2. Painel Lateral UI (Minimalista e Direto)
+    // 2. Painel Lateral UI (Minimalista)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:350px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
@@ -217,7 +217,6 @@
         document.getElementById('lgpd-actions-panel').style.display = 'flex';
     }
 
-    // --- NOVA INJEÇÃO VISUAL (WRAPPER COM BOTÕES EXTERNOS) ---
     function injetarTarjaNaPagina(pageContainer, w, h, top, left, autoConfirma = false) {
         const wrapper = document.createElement('div');
         wrapper.className = 'tarja-wrapper';
@@ -235,15 +234,15 @@
         controls.className = 'tarja-controls';
         controls.style.cssText = autoConfirma ? "display:none;" : "display:flex;";
         
-        const btnRemover = document.createElement('button');
-        btnRemover.className = 'btn-tarja-ctrl remover';
-        btnRemover.innerHTML = '✕';
-        btnRemover.title = "Excluir Tarja";
-
         const btnConfirmar = document.createElement('button');
         btnConfirmar.className = 'btn-tarja-ctrl confirmar';
         btnConfirmar.innerHTML = '✓';
         btnConfirmar.title = "Confirmar Tarja";
+
+        const btnRemover = document.createElement('button');
+        btnRemover.className = 'btn-tarja-ctrl remover';
+        btnRemover.innerHTML = '✕';
+        btnRemover.title = "Excluir Tarja";
         
         controls.appendChild(btnConfirmar);
         controls.appendChild(btnRemover);
@@ -260,7 +259,6 @@
             controls.style.display = 'none'; 
         };
         
-        // Clicar na tarja preta permite reeditá-la
         tarja.onclick = (e) => { 
             if (tarja.classList.contains('confirmada')) { 
                 tarja.classList.remove('confirmada'); 
@@ -269,14 +267,13 @@
             } 
         };
 
-        // Lógica de Movimentação (Arrastar) ligada ao Wrapper
         let isDragging = false;
         let startX, startY;
         tarja.addEventListener('mousedown', function(e) {
             if (tarja.classList.contains('confirmada')) return;
             const rect = tarja.getBoundingClientRect();
-            // Evita arrastar quando o clique é no cantinho de redimensionar
             if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
+            if (e.target.tagName.toLowerCase() === 'button') return;
             
             isDragging = true;
             startX = e.clientX - wrapper.offsetLeft;
@@ -288,9 +285,8 @@
             let x = e.clientX - startX;
             let y = e.clientY - startY;
             
-            // Trava de segurança: impede que a tarja saia da página
             if (x < 0) x = 0;
-            if (y < 25) y = 25; // Impede que suba demais e esconda os botões fora da página
+            if (y < 25) y = 25; 
             if (x + tarja.offsetWidth > pageContainer.offsetWidth) x = pageContainer.offsetWidth - tarja.offsetWidth;
             if (y + tarja.offsetHeight > pageContainer.offsetHeight) y = pageContainer.offsetHeight - tarja.offsetHeight;
 
@@ -305,44 +301,75 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- A LISTA NEGRA MILITAR ---
-    const blacklistGeral = new Set([
-        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
-        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
-        "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
+    // --- A NOVA MATRIZ DE INTERROGAÇÃO DE ENTIDADES ---
+    // Palavras individuais que invalidam toda a frase (Unidades, Patentes, Siglas e Jargões)
+    const blacklistPalavras = new Set([
+        "POSTO", "ORD", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
+        "INF", "CAV", "ART", "ENG", "COM", "INT", "QEM", "MED", "DENT", "FARM", 
+        "QEMEL", "QEMFC", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
         "INFORMAR", "ESCLARECER", "DEVER", "COMANDO", "EXERCITO", "MINISTERIO", "DEFESA", 
         "GABINETE", "SECRETARIA", "DIRETORIA", "DEPARTAMENTO", "CENTRO", "HOSPITAL", 
         "BATALHAO", "REGIMENTO", "COMPANHIA", "ESQUADRAO", "BASE", "PARQUE", "ARSENAL", 
         "ESCOLA", "ACADEMIA", "COLEGIO", "MILITAR", "NACIONAL", "PROCESSO", "REFERENCIA", 
-        "PREGAO", "ELETRONICO", "EDITAL", "CONTRATO", "ATA", "REGISTRO", "PRECOS", "GESTOR", 
+        "PREGAO", "ELETRONICO", "EDITAL", "CONTRATO", "REGISTRO", "PRECOS", "GESTOR", 
         "FISCAL", "ORDENADOR", "DESPESA", "FORNECEDOR", "EMPRESA", "LTDA", "EIRELI", "CNPJ", 
-        "CPF", "CEP", "RUA", "AVENIDA", "PRAÇA", "ALAMEDA", "RODOVIA", "ESTRADA", "LOTE", 
+        "CPF", "CEP", "RUA", "AVENIDA", "PRACA", "ALAMEDA", "RODOVIA", "ESTRADA", "LOTE", 
         "QUADRA", "SETOR", "BAIRRO", "DISTRITO", "ZONA", "SUL", "NORTE", "LESTE", "OESTE", 
-        "CENTRAL", "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "SD"
+        "CENTRAL", "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "PALAVRA", "OFICIAL", 
+        "ORGANIZACOES", "MILITARES", "SELECAO", "COMANDANTES", "CHEFES", "DIRETORES", 
+        "CHEFIA", "DIRECAO", "QUADROS", "EXTERIOR", "MISSAO", "MNE", "VETFORINEAS", 
+        "TEAA", "OMATUAL", "AMAZONIA", "ORIENTAL", "CMDO", "FRON", "BIS", "BEC", "BPE", 
+        "GAC", "RCG", "BAC", "BAPOPESP", "CMP", "MEC", "MTZ", "GAAAE", "BSUP", "CML", 
+        "CMS", "CMA", "CMAO", "CMO", "CGEO", "CGCFEX", "ESEFEX", "ESIE", "CPOR", "AMAN", 
+        "BIBLIEX", "PELIN", "HGU", "HGE", "CTA", "CIGE", "BMSA", "CRO", "DSUP", "CIARMSIFGT", 
+        "GME", "BFV", "DSUW", "GACL", "GAMAC", "GAMME", "CBLD", "CAVEX", "BIMTZ", "BIB", 
+        "CIAINFMTZ", "RCB", "RCMEC", "CIMH", "CISM", "COUD", "DCMUN", "ECT", "ICMP", "BC2", 
+        "CT", "BCSV", "ESACOSAAE", "BLOG", "MNMSGM", "CEO", "SGEX", "COEX", "SEF", "DASHVA", 
+        "VITORIA", "BATALHA", "PATRONOS", "COMUNICACAO", "SOCIAL", "BIPGD", "PREC", "BDOMPSA",
+        "BEXAP", "OP", "ESP", "PCLIN", "MPV", "MPA", "CIJF", "CEAC", "CADA", "CIBSB", "DSTAVEX"
+    ]);
+
+    // Cidades e Estados Exatos que invalidam a frase
+    const blacklistCidades = new Set([
+        "RIO DE JANEIRO", "SAO PAULO", "MONTES CLAROS", "CAMPO GRANDE", "SANTA MARIA", 
+        "CRUZ ALTA", "FOZ DO IGUACU", "PORTO ALEGRE", "JOAO PESSOA", "SAO LUIS", 
+        "SAO GABRIEL DA CACHOEIRA", "BOA VISTA", "BELO HORIZONTE", "JUIZ DE FORA",
+        "RESENDE", "NITEROI", "JABOATAO DOS GUARARAPES", "TERESINA", "CAMPINA GRANDE",
+        "CRATEUS", "MACEIO", "PAULO AFONSO", "CAICO", "PICOS", "BARREIRAS", "NATAL",
+        "SALVADOR", "FORTALEZA", "CUIABA", "COXIM", "ARAGARCAS", "PORTO MURTINHO",
+        "BELA VISTA", "AMAMBAI", "AQUIDAUANA", "UBERLANDIA", "JATAI", "BRASILIA",
+        "FORMOSA", "ARAGUARI", "GOIANIA", "CAMPINAS", "LINS", "BARUERI", "PRAIA GRANDE",
+        "SETE LAGOAS", "JUNDIAI", "PINDAMONHANGABA", "TAUBATE", "SOROCABA", "PELOTAS",
+        "SAO LEOPOLDO", "APUCARANA", "CASCAVEL", "GUAIRA", "ITAQUI", "SAO BORJA",
+        "SAO LUIZ GONZAGA", "ROSARIO DO SUL", "RIO NEGRO", "ALEGRETE", "URUGUAIANA",
+        "JAGUARAO", "SAO MIGUEL DO OESTE", "SANTA ROSA", "CACHOEIRA DO SUL", "GUARAPUAVA",
+        "NOVA SANTA RITA", "BAGE", "SANTIAGO", "TRES BARRAS", "PARACAMBI", "OLINDA", "MACAPA"
     ]);
 
     function limparPatentesDasBordas(nomeStr) {
         let words = nomeStr.split(/\s+/);
         while (words.length > 0) {
             let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]|]/g, ''));
-            if (blacklistGeral.has(limpa) || limpa.length <= 2) words.shift();
+            // Remove se a ponta for uma palavra restrita (como MAJ, INF)
+            if (blacklistPalavras.has(limpa) || limpa.length <= 2) words.shift();
             else break;
         }
         while (words.length > 0) {
             let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]|]/g, ''));
-            if (blacklistGeral.has(limpa) || limpa.length <= 2) words.pop();
+            if (blacklistPalavras.has(limpa) || limpa.length <= 2) words.pop();
             else break;
         }
         return words.join(' ');
     }
 
-    // Regras Matemáticas Base
+    // Regras Matemáticas Básicas
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
         { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
+    // Busca de Blocos em Maiúsculas (Potenciais Nomes)
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
 
     document.getElementById('btn-auto-scan').onclick = async function() {
@@ -359,7 +386,7 @@
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
-            logDebug("\n[INÍCIO] Mapeamento Topográfico (100% Offline) Iniciado.", "info");
+            logDebug("\n[INÍCIO] Mapeamento Topográfico (Filtro Militar) Iniciado.", "info");
 
             for (let i = 1; i <= totalPages; i++) {
                 scanStatus.innerText = `Varrendo Matriz - Pág. ${i}/${totalPages}...`;
@@ -417,11 +444,11 @@
                         });
                     }
 
-                    // --- ETAPA 1 E 2: INJEÇÃO DIRETA NA TELA ---
+                    // --- ETAPA DE INJEÇÃO DIRETA VISUAL ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
-                        // 1. Dados Matemáticos (Docs, CEPs, Assinaturas)
+                        // 1. Dados Matemáticos
                         regexesBusca.forEach(regObj => {
                             let match;
                             regObj.r.lastIndex = 0;
@@ -482,26 +509,35 @@
                             }
                         });
 
-                        // 2. Nomes Suspeitos (Injeta direto, sem lista na lateral)
+                        // 2. Filtro Supremo para Nomes
                         let matchNome;
                         regexNomesOffline.lastIndex = 0;
                         while ((matchNome = regexNomesOffline.exec(linha.texto)) !== null) {
                             let strOriginal = matchNome[1];
 
+                            // Descarta se pulou colunas
                             if (strOriginal.includes('|')) continue;
 
                             let cleanNome = limparPatentesDasBordas(strOriginal);
                             
+                            // Rejeita strings muito curtas (menos de 2 palavras)
                             if (cleanNome.split(/\s+/).length < 2) continue;
 
+                            let cleanNomeFormatado = removeAcentos(cleanNome.toUpperCase().trim());
+
+                            // Verifica se a string inteira é o nome de uma Cidade
+                            if (blacklistCidades.has(cleanNomeFormatado)) continue;
+
+                            // A Interrogação: Verifica palavra por palavra
                             let isBlacklisted = false;
-                            let palavras = cleanNome.toUpperCase().split(/\s+/);
+                            let palavras = cleanNomeFormatado.split(/\s+/);
                             for (let w of palavras) {
-                                if (blacklistGeral.has(removeAcentos(w))) {
+                                if (blacklistPalavras.has(w)) {
                                     isBlacklisted = true; break;
                                 }
                             }
 
+                            // Se sobreviveu, desenha a tarja
                             if (!isBlacklisted) {
                                 let startIdx = linha.texto.indexOf(cleanNome, matchNome.index);
                                 if (startIdx === -1) startIdx = matchNome.index;
@@ -511,6 +547,8 @@
                                 while (endIdx >= startIdx && (!linha.charMap[endIdx].item || linha.charMap[endIdx].char.trim() === '')) endIdx--;
 
                                 if (startIdx <= endIdx) {
+                                    logDebug(`[Pessoa Localizada] Desenhando tarja em: ${cleanNome}`, 'suspect');
+                                    
                                     const first = linha.charMap[startIdx].item;
                                     const last = linha.charMap[endIdx].item;
                                     
@@ -541,13 +579,12 @@
             
             scanContainer.style.display = "none";
             
-            // Fim do Processo
             if (tarjasDesenhadas > 0) {
                 document.getElementById('btn-confirm-all').style.display = 'block';
-                logDebug(`\n[SUCESSO] ${tarjasDesenhadas} tarjas pendentes desenhadas.`, 'info');
-                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre possíveis nomes e documentos.\n\nRevise o PDF: arraste ou redimensione se precisar, e clique no botão verde de cada tarja para fixá-la.\n\nSe a página estiver perfeita, clique em "Confirmar Todas as Tarjas" no menu lateral.`);
+                logDebug(`\n[SUCESSO] ${tarjasDesenhadas} tarjas desenhadas na tela.`);
+                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre nomes e documentos.\n\nRevise a página, exclua as incorretas (✕) ou confirme as corretas (✓).\nPara confirmar todas as tarjas válidas de uma vez, clique em "Confirmar Todas as Tarjas" no painel.`);
             } else {
-                alert("Mapeamento concluído. O sistema não encontrou Nomes ou Documentos nesta página.");
+                alert("Mapeamento concluído. O sistema não encontrou Nomes Próprios ou Documentos nesta página.");
                 btn.style.display = "block";
             }
 
@@ -558,7 +595,6 @@
         }
     };
 
-    // Botão de Confirmação em Massa (Agora busca na classe Wrapper)
     document.getElementById('btn-confirm-all').onclick = function() {
         const pendentes = workspace.querySelectorAll('.tarja-wrapper:not(.confirmada) .confirmar');
         pendentes.forEach(btn => btn.click());
@@ -566,7 +602,6 @@
         this.style.display = 'none';
     };
 
-    // A Mágica de Salvar PDF buscando do Wrapper
     document.getElementById('btn-save-pdf').onclick = async function() {
         const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
         if (tarjas.length === 0) { alert("Não há tarjas pretas (confirmadas) no documento para salvar."); return; }
@@ -591,7 +626,6 @@
                 const { width: pdfWidth } = paginaAlvo.getSize();
                 
                 const scaleX = pdfWidth / container.offsetWidth;
-                // Busca as coordenadas do topo a partir do Wrapper (que é quem se movimenta)
                 const yPdf = (container.offsetHeight - parseFloat(wrapper.style.top) - tarja.offsetHeight) * (paginaAlvo.getSize().height / container.offsetHeight);
                 
                 paginaAlvo.drawRectangle({ 
