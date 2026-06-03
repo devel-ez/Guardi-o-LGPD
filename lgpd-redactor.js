@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Tema Dark Offline)
+    // 1. Estilos 
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
@@ -331,45 +331,66 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- A LISTA NEGRA SUPREMA (CORRIGIDA) ---
+    // --- A BLACKLIST SUPREMA (COMPLETA PARA ROTINAS ADMINISTRATIVAS E MILITARES) ---
     const blacklistPalavras = new Set([
-        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
-        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
-        "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
-        "INFORMAR", "ESCLARECER", "DEVER", "COMANDO", "EXERCITO", "MINISTERIO", "DEFESA", 
-        "GABINETE", "SECRETARIA", "DIRETORIA", "DEPARTAMENTO", "CENTRO", "HOSPITAL", 
-        "BATALHAO", "REGIMENTO", "COMPANHIA", "ESQUADRAO", "BASE", "PARQUE", "ARSENAL", 
-        "ESCOLA", "ACADEMIA", "COLEGIO", "MILITAR", "NACIONAL", "PROCESSO", "REFERENCIA", 
-        "PREGAO", "ELETRONICO", "EDITAL", "CONTRATO", "REGISTRO", "PRECOS", "GESTOR", 
-        "FISCAL", "ORDENADOR", "DESPESA", "FORNECEDOR", "EMPRESA", "LTDA", "EIRELI", "CNPJ", 
-        "CPF", "CEP", "RUA", "AVENIDA", "PRACA", "ALAMEDA", "RODOVIA", "ESTRADA", "LOTE", 
-        "QUADRA", "SETOR", "BAIRRO", "DISTRITO", "ZONA", "SUL", "NORTE", "LESTE", "OESTE", 
-        "CENTRAL", "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "PALAVRA", "OFICIAL", 
-        "ORGANIZACOES", "MILITARES", "SELECAO", "COMANDANTES", "CHEFES", "DIRETORES", 
-        "CHEFIA", "DIRECAO", "QUADROS", "EXTERIOR", "MISSAO", "MNE", "VETFORINEAS", 
-        "TEAA", "OMATUAL", "AMAZONIA", "ORIENTAL", "CMDO", "FRON", "BIS", "BEC", "BPE", 
-        "GAC", "RCG", "BAC", "BAPOPESP", "CMP", "MEC", "MTZ", "GAAAE", "BSUP", "CML", 
-        "CMS", "CMA", "CMAO", "CMO", "CGEO", "CGCFEX", "ESEFEX", "ESIE", "CPOR", "AMAN", 
-        "BIBLIEX", "PELIN", "HGU", "HGE", "CTA", "CIGE", "BMSA", "CRO", "DSUP", "CIARMSIFGT", 
-        "GME", "BFV", "DSUW", "GACL", "GAMAC", "GAMME", "CBLD", "CAVEX", "BIMTZ", "BIB", 
-        "CIAINFMTZ", "RCB", "RCMEC", "CIMH", "CISM", "COUD", "DCMUN", "ECT", "ICMP", "BC2", 
-        "CT", "BCSV", "ESACOSAAE", "BLOG", "MNMSGM", "CEO", "SGEX", "COEX", "SEF", "DASHVA", 
-        "VITORIA", "BATALHA", "PATRONOS", "COMUNICACAO", "SOCIAL", "BIPGD", "PREC", "BDOMPSA",
+        // Termos Militares e Organizações
+        "COMANDO", "EXERCITO", "BRASILEIRO", "MINISTERIO", "DEFESA", "ESQUADRAO", "CAVALARIA", "SELVA", 
+        "INFANTARIA", "ARTILHARIA", "ENGENHARIA", "INTENDENCIA", "COMUNICACOES", "QUADRO", "MATERIAL", 
+        "BELICO", "SAUDE", "MEDICO", "DENTISTA", "FARMACEUTICO", "BATALHAO", "REGIMENTO", "COMPANHIA", 
+        "PELOTAO", "SECAO", "DIVISAO", "DEPARTAMENTO", "DIRETORIA", "CHEFIA", "GABINETE", "COMANDANTE", 
+        "CHEFE", "DIRETOR", "OFICIAL", "PRACA", "MILITAR", "CIVIL", "SERVIDOR", "ORGANIZACOES", "MILITARES",
+        "SELECAO", "COMANDANTES", "DIRETORES", "QUADROS", "EXTERIOR", "MISSAO", "OMATUAL", "AMAZONIA",
+        
+        // Patentes e Siglas
+        "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "SD", "ST", "ALMIRANTE", "BRIGADEIRO",
+        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", "QEMEL", "QEMFC", "PE",
+        "MNE", "VETFORINEAS", "TEAA", "CMDO", "FRON", "BIS", "BEC", "BPE", "GAC", "RCG", "BAC", "BAPOPESP", 
+        "CMP", "MEC", "MTZ", "GAAAE", "BSUP", "CML", "CMS", "CMA", "CMAO", "CMO", "CGEO", "CGCFEX", "ESEFEX", 
+        "ESIE", "CPOR", "AMAN", "BIBLIEX", "PELIN", "HGU", "HGE", "CTA", "CIGE", "BMSA", "CRO", "DSUP", 
+        "CIARMSIFGT", "GME", "BFV", "DSUW", "GACL", "GAMAC", "GAMME", "CBLD", "CAVEX", "BIMTZ", "BIB", 
+        "CIAINFMTZ", "RCB", "RCMEC", "CIMH", "CISM", "COUD", "DCMUN", "ECT", "ICMP", "BC2", "CT", "BCSV", 
+        "ESACOSAAE", "BLOG", "MNMSGM", "CEO", "SGEX", "COEX", "SEF", "DASHVA", "BIPGD", "PREC", "BDOMPSA",
         "BEXAP", "OP", "ESP", "PCLIN", "MPV", "MPA", "CIJF", "CEAC", "CADA", "CIBSB", "DSTAVEX",
-        // Adições para Atestados e Licitações Gerais
-        "ATESTADO", "CAPACIDADE", "TECNICA", "LOCADORA", "TURISMO", "SERVICOS", "COMERCIO",
-        "INDUSTRIA", "DECLARACAO", "OBJETO", "VALOR", "GLOBAL", "UNITARIO", "DATA", "ASSINATURA",
-        "GESTAO", "LOCACAO", "VEICULOS", "FROTA", "TERMO", "ADITIVO"
+
+        // Licitações, Contratos e Administração (Nova Lei 14.133)
+        "PROCESSO", "NUP", "PREGAO", "ELETRONICO", "INEXIGIBILIDADE", "DISPENSA", "LICITACAO", "CONTRATO", 
+        "ATA", "REGISTRO", "PRECOS", "TERMO", "REFERENCIA", "ESTUDO", "TECNICO", "PRELIMINAR", "PESQUISA", 
+        "EDITAL", "ANEXO", "OBJETO", "VALOR", "GLOBAL", "UNITARIO", "QUANTIDADE", "UNIDADE", "MEDIDA", 
+        "DESCRICAO", "ESPECIFICACAO", "MARCA", "MODELO", "FABRICANTE", "FORNECEDOR", "EMPRESA", "CONTRATANTE", 
+        "CONTRATADA", "GESTOR", "FISCAL", "ORDENADOR", "DESPESA", "DECLARACAO", "ATESTADO", "CAPACIDADE", 
+        "TECNICA", "PROPOSTA", "LANCE", "HOMOLOGACAO", "ADJUDICACAO", "EMPENHO", "NOTA", "FATURA", "PAGAMENTO", 
+        "PRAZO", "VIGENCIA", "GARANTIA", "MULTA", "SANCAO", "PENALIDADE", "RECURSO", "IMPUGNACAO", "AVISO", 
+        "PUBLICACAO", "DIARIO", "BOLETIM", "INTERNO", "AQUISICAO", "COMPRAS", "SERVICOS", "OBRAS", "MATERIAIS", 
+        "BENS", "EQUIPAMENTOS", "SUPRIMENTO", "LOGISTICA", "FINANCAS", "CONTABILIDADE", "PATRIMONIO", 
+        "ALMOXARIFADO", "ALMOXARIFE", "LOCADORA", "TURISMO", "COMERCIO", "INDUSTRIA", "GESTAO", "LOCACAO", 
+        "VEICULOS", "FROTA", "ADITIVO", "CADIN", "CREDITOS", "QUITADOS", "SETOR", "PUBLICO", "FEDERAL", 
+        "CONSULTA", "EMISSAO", "VALIDACAO", "RELATORIO", "CERTIDOES", "SITUACAO", "PENDENCIAS", "EBC", 
+        "PUBLICIDADE", "LEGAL", "APROV", "SALC", "DFD", "ETP", "MR", "COTACAO", "RESUMIDO", "MANUTENCAO",
+
+        // Tipos de Empresa e Elementos do Documento
+        "LTDA", "EIRELI", "CNPJ", "CPF", "CEP", "RUA", "AVENIDA", "PRACA", "ALAMEDA", "RODOVIA", "ESTRADA", 
+        "LOTE", "QUADRA", "SETOR", "BAIRRO", "DISTRITO", "ZONA", "SUL", "NORTE", "LESTE", "OESTE", "CENTRAL",
+        "ME", "EPP", "S/A", "INC", "CORP", "DOCUMENTO", "IDENTIDADE", "CNH", "RG", "RESERVISTA", "TITULO",
+        "ELEITOR", "CERTIDAO",
+
+        // Jargões e Cabeçalhos de Tabelas
+        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO", "DIFUSAO", 
+        "ASSUNTO", "DISTRIBUICAO", "INFORMEX", "INFORMAR", "ESCLARECER", "DEVER", "PALAVRA", "OFICIAL",
+        "VITORIA", "BATALHA", "PATRONOS", "COMUNICACAO", "SOCIAL", "DATA", "ASSINATURA", "CLASSIFICACAO",
+        "ORIGEM", "LOCALIZACAO", "ATUAL", "ESTADO", "MINUTA", "AUTUADO", "CRIACAO", "AUTUACAO", "PECAS", 
+        "PROCESSUAIS", "DESPACHO", "ABERTURA", "INDUSTRIAIS", "DOMESTICOS", "CAMARAS", "RESFRIAMENTO", 
+        "CONGELAMENTO", "TUBULACAO", "GAS", "LIMPEZA", "CAIXA", "AGUA", "SUCCAO", "REMOCAO", "DEJETOS", 
+        "GORDURA", "ESGOTO", "ANALISE", "FISICO", "QUIMICA", "TROCA", "FILTROS", "ELEMENTOS", "FILTRANTES"
     ]);
 
     const blacklistCidades = new Set([
-        "RIO DE JANEIRO", "SAO PAULO", "MONTES CLAROS", "CAMPO GRANDE", "SANTA MARIA", 
-        "CRUZ ALTA", "FOZ DO IGUACU", "PORTO ALEGRE", "JOAO PESSOA", "SAO LUIS", 
+        "TUCURUI", "PARA", "BRASILIA", "RIO DE JANEIRO", "SAO PAULO", "MONTES CLAROS", "CAMPO GRANDE", "SANTA MARIA", 
+        "CRUZ ALTA", "FOZ DO IGUACU", "PORTO ALEGRE", "JOAO PESSOA", "SAO LUIS", "MANAUS", "BELEM", "RECIFE",
         "SAO GABRIEL DA CACHOEIRA", "BOA VISTA", "BELO HORIZONTE", "JUIZ DE FORA",
         "RESENDE", "NITEROI", "JABOATAO DOS GUARARAPES", "TERESINA", "CAMPINA GRANDE",
         "CRATEUS", "MACEIO", "PAULO AFONSO", "CAICO", "PICOS", "BARREIRAS", "NATAL",
         "SALVADOR", "FORTALEZA", "CUIABA", "COXIM", "ARAGARCAS", "PORTO MURTINHO",
-        "BELA VISTA", "AMAMBAI", "AQUIDAUANA", "UBERLANDIA", "JATAI", "BRASILIA",
+        "BELA VISTA", "AMAMBAI", "AQUIDAUANA", "UBERLANDIA", "JATAI",
         "FORMOSA", "ARAGUARI", "GOIANIA", "CAMPINAS", "LINS", "BARUERI", "PRAIA GRANDE",
         "SETE LAGOAS", "JUNDIAI", "PINDAMONHANGABA", "TAUBATE", "SOROCABA", "PELOTAS",
         "SAO LEOPOLDO", "APUCARANA", "CASCAVEL", "GUAIRA", "ITAQUI", "SAO BORJA",
@@ -393,10 +414,19 @@
         return words.join(' ');
     }
 
+    // --- REGRAS MATEMÁTICAS APRIMORADAS (SEM CNPJ) ---
     const regexesBusca = [
-        { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
+        // CPF exato: XXX.XXX.XXX-XX
+        { tipo: 'cpf', r: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g }, 
+        
+        // Documentos de Identidade e CNH acompanhados do prefixo
+        { tipo: 'doc_identidade', r: /\b(?:RG|CNH|C\.N\.H\.?|Identidade|Registro Geral)\s*[:.-]?\s*\d{1,3}(?:\.\d{3})*(?:-\d{1,2}|[A-Z0-9]{1,2})?\b/gi },
+        
+        // Assinaturas Eletrônicas Gov.br
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
-        { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
+        
+        // CEP
+        { tipo: 'cep', r: /\b(CEP\s*:?\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
@@ -477,7 +507,7 @@
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
-                        // 1. Dados Matemáticos
+                        // 1. Dados Matemáticos Filtrados (Apenas CPF, RG, CNH, CEP, Assinatura)
                         regexesBusca.forEach(regObj => {
                             let match;
                             regObj.r.lastIndex = 0;
