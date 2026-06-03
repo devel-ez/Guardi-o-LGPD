@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Tema Dark Offline Militar)
+    // 1. Estilos 
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
@@ -13,14 +13,10 @@
         .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
+        .btn-tarja-ctrl.confirmar { background: #059669; }
         
-        .lgpd-name-list { max-height: 250px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
-        .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
-        .lgpd-name-item input { cursor: pointer; }
-        .lgpd-name-item:hover { background: #f8fafc; }
-        
-        #lgpd-debug-log::-webkit-scrollbar, .lgpd-name-list::-webkit-scrollbar { width: 6px; }
-        #lgpd-debug-log::-webkit-scrollbar-thumb, .lgpd-name-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        #lgpd-debug-log::-webkit-scrollbar { width: 6px; }
+        #lgpd-debug-log::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     `;
     document.head.appendChild(style);
 
@@ -28,24 +24,19 @@
     let globalPdfJsDoc = null;
     let objectUrl = null; 
     let originalArrayBuffer = null;
-    let mapNomesSuspeitos = new Map(); 
 
-    // 2. Painel Lateral UI (Modo Offline)
+    // 2. Painel Lateral UI (Minimalista)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
-    root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
+    root.style = 'position:fixed;top:15px;right:15px;width:370px;height:90vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
         <div style="background:#0f172a;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD (OFFLINE)</span>
+            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             
-            <div style="background:#ecfdf5; border:1px solid #a7f3d0; padding:10px; border-radius:6px; font-size:11px; color:#047857; text-align: center;">
-                <b>✓ MODO SEGURO ATIVADO</b><br>O processamento ocorre 100% no seu computador. Nenhum dado é enviado para a internet.
-            </div>
-
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
                 <span style="font-size:13px;color:#475569;font-weight:bold;">Arraste o PDF aqui</span>
                 <input type="file" id="lgpd-file-input" accept="application/pdf" style="display:none;" />
@@ -60,7 +51,7 @@
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(30, 41, 59, 0.3);">🔍 1. Mapear Dados (Motor Topográfico)</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(30, 41, 59, 0.3);">🔍 1. Mapear Dados no Documento</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
@@ -70,11 +61,7 @@
                     <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#10b981;"></div></div>
                 </div>
 
-                <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
-                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 Suspeitos Encontrados (Revisão):</span>
-                    <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
-                    <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
-                </div>
+                <button id="btn-confirm-all" style="display:none; width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Confirmar Todas as Tarjas</button>
 
                 <hr style="border:0;border-top:1px solid #e2e8f0;margin:5px 0;">
                 <button id="btn-save-pdf" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);">💾 3. SALVAR PDF SEGURO</button>
@@ -89,7 +76,7 @@
 
     const workspace = document.createElement('div');
     workspace.id = 'lgpd-canvas-workspace';
-    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 420px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
+    workspace.style = 'position:fixed;top:0;left:0;width:calc(100vw - 400px);height:100vh;overflow-y:auto;padding:30px;box-sizing:border-box;background:#525659;z-index:999998;display:none;flex-direction:column;align-items:center;';
     document.body.appendChild(workspace);
 
     function logDebug(msg, tipo = 'info') {
@@ -160,13 +147,12 @@
         workspace.innerHTML = "";
         workspace.style.display = 'none';
         document.getElementById('lgpd-actions-panel').style.display = 'none';
-        document.getElementById('painel-revisao-nomes').style.display = 'none';
+        document.getElementById('btn-confirm-all').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
         document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA OFFLINE ATIVADO...<br>";
         pdfDocInstance = null;
         globalPdfJsDoc = null;
         originalArrayBuffer = null;
-        mapNomesSuspeitos.clear();
         if(objectUrl) URL.revokeObjectURL(objectUrl);
         fileInput.value = ""; 
     };
@@ -234,28 +220,73 @@
 
         const controls = document.createElement('div');
         controls.style.cssText = autoConfirma ? "display:none; z-index:10001;" : "display:flex; z-index:10001;";
+        
+        const btnConfirmar = document.createElement('button');
+        btnConfirmar.className = 'btn-tarja-ctrl confirmar';
+        btnConfirmar.innerHTML = '✓';
+
         const btnRemover = document.createElement('button');
         btnRemover.className = 'btn-tarja-ctrl remover';
         btnRemover.innerHTML = '✕';
         
+        controls.appendChild(btnConfirmar);
         controls.appendChild(btnRemover);
         tarja.appendChild(controls);
         pageContainer.appendChild(tarja);
 
         btnRemover.onclick = (e) => { e.stopPropagation(); tarja.remove(); };
+        btnConfirmar.onclick = (e) => {
+            e.stopPropagation();
+            tarja.classList.add('confirmada');
+            controls.style.display = 'none';
+        };
+
+        // Permite reativar a edição se clicar na tarja preta confirmada
         tarja.onclick = (e) => { 
             if (tarja.classList.contains('confirmada')) { 
                 tarja.classList.remove('confirmada'); 
                 controls.style.display = 'flex'; 
             } 
         };
+
+        // Lógica Avançada de Arrastar (Drag and Drop)
+        let isDragging = false;
+        let startX, startY;
+        tarja.addEventListener('mousedown', function(e) {
+            if (tarja.classList.contains('confirmada')) return;
+            const rect = tarja.getBoundingClientRect();
+            // Ignora o arraste se clicar no canto de redimensionar ou nos botões
+            if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return;
+            if (e.target.tagName.toLowerCase() === 'button') return;
+            
+            isDragging = true;
+            startX = e.clientX - tarja.offsetLeft;
+            startY = e.clientY - tarja.offsetTop;
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            let x = e.clientX - startX;
+            let y = e.clientY - startY;
+            
+            // Impede que a tarja seja arrastada para fora da página
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x + tarja.offsetWidth > pageContainer.offsetWidth) x = pageContainer.offsetWidth - tarja.offsetWidth;
+            if (y + tarja.offsetHeight > pageContainer.offsetHeight) y = pageContainer.offsetHeight - tarja.offsetHeight;
+
+            tarja.style.left = `${x}px`;
+            tarja.style.top = `${y}px`;
+        });
+        
+        document.addEventListener('mouseup', () => isDragging = false);
     }
 
     function removeAcentos(str) {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- A LISTA NEGRA MILITAR (ANTI-ALUCINAÇÃO OFFLINE) ---
+    // --- A LISTA NEGRA MILITAR (ANTI-FALSOS POSITIVOS) ---
     const blacklistGeral = new Set([
         "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
         "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
@@ -271,7 +302,6 @@
         "CENTRAL", "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "SD"
     ]);
 
-    // O Aparador de Bordas (Remove patentes coladas no nome como "Maj JOAO")
     function limparPatentesDasBordas(nomeStr) {
         let words = nomeStr.split(/\s+/);
         while (words.length > 0) {
@@ -294,7 +324,7 @@
         { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
-    // REGRA DO NOME OFFLINE (Captura blocos de 2 ou mais palavras Maiúsculas/Versalete)
+    // REGRA DE NOME OFFLINE (Captura 2 ou mais palavras Maiúsculas/Versalete)
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
 
     document.getElementById('btn-auto-scan').onclick = async function() {
@@ -307,15 +337,14 @@
         scanContainer.style.display = "block";
         document.getElementById('lgpd-debug-log').style.display = 'block';
         
-        mapNomesSuspeitos.clear();
-        let tarjasAutoDetectadas = 0;
+        let tarjasDesenhadas = 0;
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
             logDebug("\n[INÍCIO] Mapeamento Topográfico (100% Offline) Iniciado.", "info");
 
             for (let i = 1; i <= totalPages; i++) {
-                scanStatus.innerText = `Processando Matriz - Pág. ${i}/${totalPages}...`;
+                scanStatus.innerText = `Varrendo Matriz - Pág. ${i}/${totalPages}...`;
                 scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
                 
                 const page = await globalPdfJsDoc.getPage(i);
@@ -329,7 +358,6 @@
 
                     // --- O PULO DO GATO: FATIAMENTO GEOMÉTRICO (Y-CLUSTERING) ---
                     if (validItems.length > 10) {
-                        // Agrupa palavras pela altura na tela (Eixo Y), tolerância de 3 pixels
                         validItems.forEach(item => {
                             const itemY = item.transform[5];
                             let linhaMatch = linhasObj.find(l => Math.abs(l.y - itemY) < 3.5);
@@ -340,7 +368,6 @@
                             linhaMatch.tokens.push(item);
                         });
 
-                        // Ordena as palavras da linha da esquerda para a direita (Eixo X)
                         linhasObj.forEach(linha => {
                             linha.tokens.sort((a, b) => a.transform[4] - b.transform[4]);
                             
@@ -349,7 +376,6 @@
                                 let sep = '';
                                 if (prevItem) {
                                     const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
-                                    // Se a distância for muito grande, é outra coluna da tabela. Colocamos uma "parede" (|).
                                     if (distX > 30) sep = ' | ';
                                     else if (distX > 3 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
                                 }
@@ -374,10 +400,11 @@
                         });
                     }
 
-                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA E EXPLOSÃO CONTROLADA ---
+                    // --- INJEÇÃO DIRETA VISUAL ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
+                        // 1. Injeção de Dados Matemáticos (Docs, CEPs, Assinaturas)
                         regexesBusca.forEach(regObj => {
                             let match;
                             regObj.r.lastIndex = 0;
@@ -393,7 +420,6 @@
 
                                 if (!hasOverlap) {
                                     logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
-                                    tarjasAutoDetectadas++;
                                     
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + cleanStr.length - 1;
@@ -424,38 +450,35 @@
 
                                         if (isAss) {
                                             if (isGovBrSelo) { 
-                                                // Expande apenas se for selo oficial (Explosão Ativada)
                                                 w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; 
                                             } else { 
-                                                // Se for texto corrido "assinatura eletrônica"
                                                 w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2; 
                                             }
                                         } else {
                                             w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2;
                                         }
 
-                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, true);
+                                        // Todos nascem não confirmados (vermelhos) para o usuário revisar
+                                        injetarTarjaNaPagina(pageContainer, `${w_val}px`, `${h_val}px`, `${Math.max(0, finalY)}px`, `${Math.max(0, finalX)}px`, false);
+                                        tarjasDesenhadas++;
                                     }
                                     for (let k = 0; k < cleanStr.length; k++) overlaps[matchIdx + k] = 1;
                                 }
                             }
                         });
 
-                        // --- ETAPA 2: MOTOR TOPOGRÁFICO PARA NOMES (SEM NUVEM) ---
+                        // 2. Injeção de Nomes Suspeitos
                         let matchNome;
                         regexNomesOffline.lastIndex = 0;
                         while ((matchNome = regexNomesOffline.exec(linha.texto)) !== null) {
                             let strOriginal = matchNome[1];
 
-                            // O muro invisível das tabelas: Se a string tentou pular coluna, descartamos.
                             if (strOriginal.includes('|')) continue;
 
                             let cleanNome = limparPatentesDasBordas(strOriginal);
                             
-                            // Rejeita lixo administrativo isolado
                             if (cleanNome.split(/\s+/).length < 2) continue;
 
-                            // Verifica com a Blacklist Suprema
                             let isBlacklisted = false;
                             let palavras = cleanNome.toUpperCase().split(/\s+/);
                             for (let w of palavras) {
@@ -465,19 +488,16 @@
                             }
 
                             if (!isBlacklisted) {
-                                logDebug(`[Mapeado Offline] Entidade Suspeita: ${cleanNome}`, 'suspect');
+                                logDebug(`[Nome Encontrado] Desenhando tarja em: ${cleanNome}`, 'suspect');
                                 
                                 let startIdx = linha.texto.indexOf(cleanNome, matchNome.index);
                                 if (startIdx === -1) startIdx = matchNome.index;
                                 let endIdx = startIdx + cleanNome.length - 1;
 
-                                // Contrai os limites geométricos exatos (Impede o vazamento de tarja)
                                 while (startIdx <= endIdx && (!linha.charMap[startIdx].item || linha.charMap[startIdx].char.trim() === '')) startIdx++;
                                 while (endIdx >= startIdx && (!linha.charMap[endIdx].item || linha.charMap[endIdx].char.trim() === '')) endIdx--;
 
                                 if (startIdx <= endIdx) {
-                                    if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
-                                    
                                     const first = linha.charMap[startIdx].item;
                                     const last = linha.charMap[endIdx].item;
                                     
@@ -492,13 +512,10 @@
                                         h = first.bbox.y1 - first.bbox.y0 + 8;
                                     }
                                     
-                                    mapNomesSuspeitos.get(cleanNome).push({
-                                        pageNode: pageContainer,
-                                        w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
-                                    });
+                                    injetarTarjaNaPagina(pageContainer, `${Math.max(x1 - x0 + 10, 15)}px`, `${h}px`, `${Math.max(0, y0 - h + 2)}px`, `${Math.max(0, x0 - 5)}px`, false);
+                                    tarjasDesenhadas++;
                                 }
                                 
-                                // Bloqueia a área para não tarjar de novo por cima
                                 for (let k = 0; k < cleanNome.length; k++) overlaps[startIdx + k] = 1;
                             }
                         }
@@ -508,32 +525,12 @@
             
             scanContainer.style.display = "none";
             
-            // --- MONTAGEM DO PAINEL DE REVISÃO HUMANA ---
-            const painelRevisao = document.getElementById('painel-revisao-nomes');
-            const divLista = document.getElementById('lista-nomes-suspeitos');
-            divLista.innerHTML = ''; 
-            
-            if (mapNomesSuspeitos.size > 0) {
-                const nomesOrdenados = Array.from(mapNomesSuspeitos.keys()).sort();
-                
-                nomesOrdenados.forEach(nome => {
-                    const label = document.createElement('label');
-                    label.className = 'lgpd-name-item';
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.value = nome;
-                    checkbox.checked = true; 
-                    
-                    label.appendChild(checkbox);
-                    label.appendChild(document.createTextNode(nome));
-                    divLista.appendChild(label);
-                });
-                
-                painelRevisao.style.display = 'flex';
-                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} entidades para revisão.`);
-                alert(`Mapeamento Topográfico Concluído!\n\nDocs e Assinaturas tarjados automaticamente.\nO motor offline isolou ${mapNomesSuspeitos.size} possíveis Nomes Próprios.\n\nRevise a lista no painel, desmarque o que NÃO for pessoa, e aplique as tarjas.`);
+            if (tarjasDesenhadas > 0) {
+                document.getElementById('btn-confirm-all').style.display = 'block';
+                logDebug(`\n[AGUARDANDO REVISÃO] ${tarjasDesenhadas} tarjas desenhadas na tela.`);
+                alert(`Mapeamento Concluído!\n\nDesenhamos ${tarjasDesenhadas} tarjas vermelhas sobre possíveis nomes e documentos no PDF.\n\nRevise a página, arraste ou redimensione se precisar, e clique no botão verde da tarja para confirmar. Para confirmar todas de uma vez, clique em "Confirmar Todas as Tarjas" no menu lateral.`);
             } else {
-                alert("Mapeamento concluído. O sistema não isolou Nomes Próprios suspeitos na página.");
+                alert("Mapeamento concluído. O sistema não encontrou Nomes Próprios ou Documentos nesta página.");
                 btn.style.display = "block";
             }
 
@@ -544,31 +541,17 @@
         }
     };
 
-    document.getElementById('btn-aplicar-nomes').onclick = function() {
-        const checkboxes = document.querySelectorAll('#lista-nomes-suspeitos input[type="checkbox"]:checked');
-        let aplicadas = 0;
-        
-        checkboxes.forEach(chk => {
-            const nomeEscolhido = chk.value;
-            const coordenadasArray = mapNomesSuspeitos.get(nomeEscolhido);
-            
-            if (coordenadasArray) {
-                coordenadasArray.forEach(coord => {
-                    injetarTarjaNaPagina(coord.pageNode, `${coord.w}px`, `${coord.h}px`, `${coord.y}px`, `${coord.x}px`, true);
-                    aplicadas++;
-                });
-            }
-        });
-        
-        logDebug(`[SUCESSO] Aplicadas ${aplicadas} tarjas autorizadas.`);
-        document.getElementById('painel-revisao-nomes').style.display = 'none';
-        document.getElementById('btn-auto-scan').style.display = 'block';
-        alert(`Perfeito! ${aplicadas} tarjas foram aplicadas aos nomes confirmados.\n\nVocê já pode Salvar o PDF Seguro.`);
+    // Botão de Confirmação em Massa
+    document.getElementById('btn-confirm-all').onclick = function() {
+        const pendentes = workspace.querySelectorAll('.tarja-lgpd-custom:not(.confirmada) .confirmar');
+        pendentes.forEach(btn => btn.click());
+        logDebug(`[SUCESSO] ${pendentes.length} tarjas confirmadas em massa.`);
+        this.style.display = 'none';
     };
 
     document.getElementById('btn-save-pdf').onclick = async function() {
         const tarjas = workspace.querySelectorAll('.tarja-lgpd-custom.confirmada');
-        if (tarjas.length === 0) { alert("Não há tarjas aplicadas no documento para salvar."); return; }
+        if (tarjas.length === 0) { alert("Não há tarjas pretas (confirmadas) no documento para salvar."); return; }
         
         const btn = this;
         const textoOriginal = btn.innerHTML;
