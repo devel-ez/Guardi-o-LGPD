@@ -1,20 +1,20 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos
+    // 1. Estilos (Tema Dark Offline Militar)
     const style = document.createElement('style');
     style.innerHTML = `
-        .lgpd-dropzone.dragover { background: #fee2e2 !important; border-color: #f43f5e !important; }
+        .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
         .tarja-lgpd-custom { position: absolute; background: rgba(239, 68, 68, 0.45); border: 2px dashed #dc2626; cursor: move; z-index: 2147483647 !important; box-sizing: border-box; resize: both; overflow: hidden; min-width: 30px; min-height: 15px; display: flex; justify-content: flex-end; align-items: flex-start; padding: 2px; }
         .tarja-lgpd-custom::-webkit-resizer { background: #dc2626; outline: 1px solid #fff; }
         .tarja-lgpd-custom.confirmada { background: #000000 !important; border: none !important; resize: none !important; cursor: pointer !important; }
         .pdf-page-container { position: relative; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background: #fff; }
-        .lgpd-progress-fill { height: 100%; background: #f43f5e; transition: width 0.1s ease; border-radius: 4px; }
+        .lgpd-progress-fill { height: 100%; background: #10b981; transition: width 0.1s ease; border-radius: 4px; }
         .btn-tarja-ctrl { display:flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:11px; font-weight:bold; cursor:pointer; color:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.3); transition: 0.1s; border:none; margin-left: 4px; pointer-events:auto; }
         .btn-tarja-ctrl:hover { transform: scale(1.1); }
         .btn-tarja-ctrl.remover { background: #dc2626; }
         
-        .lgpd-name-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
+        .lgpd-name-list { max-height: 250px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 11px; color: #334155; margin-bottom: 10px; }
         .lgpd-name-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
         .lgpd-name-item input { cursor: pointer; }
         .lgpd-name-item:hover { background: #f8fafc; }
@@ -30,21 +30,20 @@
     let originalArrayBuffer = null;
     let mapNomesSuspeitos = new Map(); 
 
-    // 2. Painel Lateral UI
+    // 2. Painel Lateral UI (Modo Offline)
     const root = document.createElement('div');
     root.id = 'lgpd-redactor-root';
     root.style = 'position:fixed;top:15px;right:15px;width:390px;height:95vh;background:#ffffff;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:12px;font-family:sans-serif;display:flex;flex-direction:column;border:1px solid #e0e0e0;overflow:hidden;';
     
     root.innerHTML = `
-        <div style="background:#1e293b;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
-            <span style="font-weight:bold;font-size:14px;">⚡ GROQ GUARDIÃO (LLama 3.3)</span>
+        <div style="background:#0f172a;color:#f8fafc;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
+            <span style="font-weight:bold;font-size:14px;">🛡️ GUARDIÃO LGPD (OFFLINE)</span>
             <span id="close-lgpd-ui" style="cursor:pointer;font-weight:bold;opacity:0.7;">✕</span>
         </div>
         <div style="padding:15px;flex-grow:1;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:10px;" id="lgpd-content">
             
-            <div style="background:#fff1f2; border:1px solid #fecdd3; padding:10px; border-radius:6px; font-size:11px; color:#be123c;">
-                <b>Conexão Groq AI:</b> Cole sua chave API (gsk_...). O sistema salvará ela no seu navegador.
-                <input type="password" id="groq-api-key" placeholder="Cole a Chave da API aqui (gsk_...)" style="width:100%; margin-top:5px; padding:6px; border:1px solid #fecdd3; border-radius:4px; font-size:11px;" />
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; padding:10px; border-radius:6px; font-size:11px; color:#047857; text-align: center;">
+                <b>✓ MODO SEGURO ATIVADO</b><br>O processamento ocorre 100% no seu computador. Nenhum dado é enviado para a internet.
             </div>
 
             <div id="lgpd-upload-area" class="lgpd-dropzone" style="border:2px dashed #cbd5e1;border-radius:8px;padding:25px 20px;text-align:center;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;">
@@ -54,25 +53,25 @@
 
             <div id="lgpd-load-progress-container" style="display:none;background:#fff;border:1px solid #e2e8f0;padding:16px;border-radius:8px;">
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;font-weight:bold;">
-                    <span id="lgpd-load-status">Processando...</span>
+                    <span id="lgpd-load-status">Renderizando...</span>
                     <span id="lgpd-load-percent">0%</span>
                 </div>
-                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%; background:#f43f5e;"></div></div>
+                <div style="width:100%;background:#e2e8f0;height:10px;border-radius:5px;"><div id="lgpd-load-bar" class="lgpd-progress-fill" style="width:0%;"></div></div>
             </div>
 
             <div id="lgpd-actions-panel" style="display:none;flex-direction:column;gap:10px;">
-                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#f43f5e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(244, 63, 94, 0.3);">🚀 1. Analisar com IA Groq</button>
+                <button id="btn-auto-scan" style="width:100%;padding:12px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow: 0 4px 6px rgba(30, 41, 59, 0.3);">🔍 1. Mapear Dados (Motor Topográfico)</button>
                 
                 <div id="lgpd-scan-progress-container" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;">
                     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;font-weight:bold;">
-                        <span id="lgpd-scan-status">Iniciando IA...</span>
+                        <span id="lgpd-scan-status">Varrendo Matriz...</span>
                         <span id="lgpd-scan-percent">0%</span>
                     </div>
-                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#f43f5e;"></div></div>
+                    <div style="width:100%;background:#e2e8f0;height:8px;border-radius:4px;"><div id="lgpd-scan-bar" class="lgpd-progress-fill" style="width:0%;background:#10b981;"></div></div>
                 </div>
 
                 <div id="painel-revisao-nomes" style="display:none; flex-direction:column;">
-                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 IA Encontrou (Marque as Pessoas Físicas):</span>
+                    <span style="font-size:12px; font-weight:bold; color:#1e293b; margin-bottom:5px;">👤 Suspeitos Encontrados (Revisão):</span>
                     <div id="lista-nomes-suspeitos" class="lgpd-name-list"></div>
                     <button id="btn-aplicar-nomes" style="width:100%;padding:10px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;box-shadow: 0 4px 6px rgba(5, 150, 105, 0.3);">✅ 2. Aplicar Tarjas Selecionadas</button>
                 </div>
@@ -82,14 +81,11 @@
                 <button id="btn-new-doc" style="width:100%;padding:8px;background:#64748b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">📄 Carregar Novo Documento</button>
                 
                 <button id="btn-toggle-log" style="width:100%;padding:8px;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;margin-top:2px;">💻 Exibir Console de Rastreio</button>
-                <div id="lgpd-debug-log" style="display:none; height:120px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA IA ATIVADO...<br></div>
+                <div id="lgpd-debug-log" style="display:none; height:120px; background:#0f172a; color:#10b981; font-family:monospace; font-size:10px; padding:8px; overflow-y:auto; border-radius:6px; white-space:pre-wrap; word-wrap:break-word;">SISTEMA OFFLINE ATIVADO...<br></div>
             </div>
         </div>
     `;
     document.body.appendChild(root);
-
-    const savedKey = localStorage.getItem('lgpd_groq_api_key');
-    if (savedKey) document.getElementById('groq-api-key').value = savedKey;
 
     const workspace = document.createElement('div');
     workspace.id = 'lgpd-canvas-workspace';
@@ -102,7 +98,7 @@
             let cor = '#10b981'; 
             if (tipo === 'match') cor = '#f59e0b'; 
             if (tipo === 'error') cor = '#ef4444'; 
-            if (tipo === 'suspect') cor = '#fb7185'; 
+            if (tipo === 'suspect') cor = '#38bdf8'; 
             if (tipo === 'skip') cor = '#94a3b8';
             logDiv.innerHTML += `<span style="color:${cor}">${msg}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
@@ -137,8 +133,7 @@
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
         } catch (err) {
-            logDebug("Erro ao carregar bibliotecas.", 'error');
-            alert("Erro ao carregar as bibliotecas do CDN. Verifique a internet e tente CTRL+F5.");
+            logDebug("Erro ao carregar bibliotecas do CDN. Verifique a internet e tente CTRL+F5.", 'error');
         }
     }
 
@@ -167,7 +162,7 @@
         document.getElementById('lgpd-actions-panel').style.display = 'none';
         document.getElementById('painel-revisao-nomes').style.display = 'none';
         document.getElementById('lgpd-upload-area').style.display = 'flex';
-        document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA IA ATIVADO...<br>";
+        document.getElementById('lgpd-debug-log').innerHTML = "SISTEMA OFFLINE ATIVADO...<br>";
         pdfDocInstance = null;
         globalPdfJsDoc = null;
         originalArrayBuffer = null;
@@ -181,7 +176,7 @@
         dropzone.style.display = 'none';
         const loadContainer = document.getElementById('lgpd-load-progress-container');
         loadContainer.style.display = 'block';
-        logDebug(`Carregando: ${file.name}`);
+        logDebug(`Carregando PDF: ${file.name}`);
         await new Promise(r => setTimeout(r, 50)); 
 
         try {
@@ -191,7 +186,7 @@
             globalPdfJsDoc = await pdfjsLib.getDocument(objectUrl).promise;
             await renderizarDocumento(loadContainer);
         } catch (err) {
-            logDebug("Falha ao abrir PDF.", 'error');
+            logDebug("Falha ao abrir PDF. Pode estar corrompido.", 'error');
         }
     }
 
@@ -260,93 +255,49 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    // --- CÉREBRO DA IA GROQ (FALLBACK DE MODELOS LLAMA 3 ATUALIZADO) ---
-    async function getNamesFromIA(textoDaPagina, apiKey) {
-        const prompt = `Você é um sistema rigoroso de anonimização de dados (LGPD) atuando em Diários Oficiais e Boletins Militares do Exército Brasileiro.
-Sua ÚNICA função é extrair a lista exata de NOMES PRÓPRIOS COMPLETOS de PESSOAS FÍSICAS REAIS encontrados no texto.
+    // --- A LISTA NEGRA MILITAR (ANTI-ALUCINAÇÃO OFFLINE) ---
+    const blacklistGeral = new Set([
+        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
+        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
+        "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
+        "INFORMAR", "ESCLARECER", "DEVER", "COMANDO", "EXERCITO", "MINISTERIO", "DEFESA", 
+        "GABINETE", "SECRETARIA", "DIRETORIA", "DEPARTAMENTO", "CENTRO", "HOSPITAL", 
+        "BATALHAO", "REGIMENTO", "COMPANHIA", "ESQUADRAO", "BASE", "PARQUE", "ARSENAL", 
+        "ESCOLA", "ACADEMIA", "COLEGIO", "MILITAR", "NACIONAL", "PROCESSO", "REFERENCIA", 
+        "PREGAO", "ELETRONICO", "EDITAL", "CONTRATO", "ATA", "REGISTRO", "PRECOS", "GESTOR", 
+        "FISCAL", "ORDENADOR", "DESPESA", "FORNECEDOR", "EMPRESA", "LTDA", "EIRELI", "CNPJ", 
+        "CPF", "CEP", "RUA", "AVENIDA", "PRAÇA", "ALAMEDA", "RODOVIA", "ESTRADA", "LOTE", 
+        "QUADRA", "SETOR", "BAIRRO", "DISTRITO", "ZONA", "SUL", "NORTE", "LESTE", "OESTE", 
+        "CENTRAL", "MAJ", "CEL", "GEN", "TEN", "SGT", "CBO", "SD"
+    ]);
 
-REGRAS ABSOLUTAS SOB PENA DE FALHA:
-1. É ESTRITAMENTE PROIBIDO extrair cabeçalhos de tabela (NOME, POSTO, A/Q/SV, ORD, UF, CIDADE, OBS, TOTAL, TURMA, ARMA).
-2. É ESTRITAMENTE PROIBIDO extrair siglas militares (INF, CAV, ART, ENG, COM, INT, MB, QEM, MED, DENT, FARM, QEMEL, QEMFC).
-3. NÃO inclua a patente junto com o nome (Ex: Se ler "Maj JOAO DA SILVA", retorne APENAS "JOAO DA SILVA").
-4. EXTRAIA ABSOLUTAMENTE TODOS OS NOMES DE PESSOAS DA PÁGINA. NÃO RESUMA A LISTA!
-
-Retorne APENAS um array JSON contendo as strings dos nomes. Não escreva formatação Markdown ou texto explicativo.
-Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
-
-        const modelosGroq = [
-            'llama-3.3-70b-versatile', 
-            'llama-3.1-8b-instant', 
-            'mixtral-8x7b-32768'
-        ];
-
-        for (let modelName of modelosGroq) {
-            logDebug(`[IA] Conectando ao modelo Groq: ${modelName}...`, 'info');
-            try {
-                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: modelName,
-                        messages: [
-                            { role: 'system', content: prompt },
-                            { role: 'user', content: `Texto Extraído da Página:\n\n${textoDaPagina}` }
-                        ],
-                        temperature: 0.0 
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    logDebug(`[Aviso API Groq - ${modelName}] ${data.error.message}`, 'skip');
-                    continue; 
-                }
-
-                if (data.choices && data.choices[0].message && data.choices[0].message.content) {
-                    let responseText = data.choices[0].message.content.trim();
-                    let jsonMatch = responseText.match(/\[.*\]/s);
-                    if (jsonMatch) {
-                        return JSON.parse(jsonMatch[0]);
-                    } else {
-                        return JSON.parse(responseText); 
-                    }
-                }
-            } catch (e) {
-                logDebug(`[Erro de Rede - ${modelName}] ${e.message}`, "error");
-            }
+    // O Aparador de Bordas (Remove patentes coladas no nome como "Maj JOAO")
+    function limparPatentesDasBordas(nomeStr) {
+        let words = nomeStr.split(/\s+/);
+        while (words.length > 0) {
+            let limpa = removeAcentos(words[0].toUpperCase().replace(/[.,()\[\]|]/g, ''));
+            if (blacklistGeral.has(limpa) || limpa.length <= 2) words.shift();
+            else break;
         }
-        
-        logDebug(`[ERRO CRÍTICO] A Groq recusou a conexão em todos os modelos.`, "error");
-        return null;
+        while (words.length > 0) {
+            let limpa = removeAcentos(words[words.length - 1].toUpperCase().replace(/[.,()\[\]|]/g, ''));
+            if (blacklistGeral.has(limpa) || limpa.length <= 2) words.pop();
+            else break;
+        }
+        return words.join(' ');
     }
 
-    // Regras Matemáticas Seguras (CPF, CEP, Assinaturas)
+    // Regras Matemáticas Base
     const regexesBusca = [
         { tipo: 'doc', r: /(?:^|\b|\D)(\d{2,3}(?:\.\d{3})+(?:-\d{1,2}|[A-Z]{1,2})?)(?!\d)/g }, 
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital))/gi }, 
         { tipo: 'cep', r: /\b(CEP\s*\d{2}\.?\d{3}-\d{3}|\d{5}-\d{3})\b/gi }
     ];
 
-    // FASE 2: BLACKLIST ANTI-ALUCINAÇÃO (O Filtro Intercetor)
-    const blacklistGeral = new Set([
-        "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA",
-        "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
-        "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
-        "INFORMAR", "ESCLARECER", "DEVER", "COMANDO", "EXERCITO"
-    ]);
+    // REGRA DO NOME OFFLINE (Captura blocos de 2 ou mais palavras Maiúsculas/Versalete)
+    const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
 
     document.getElementById('btn-auto-scan').onclick = async function() {
-        const apiKey = document.getElementById('groq-api-key').value.trim();
-        if (!apiKey) {
-            alert("Atenção! Cole a sua Chave da API da Groq no campo indicado.");
-            return;
-        }
-        localStorage.setItem('lgpd_groq_api_key', apiKey);
-
         const btn = this;
         const scanContainer = document.getElementById('lgpd-scan-progress-container');
         const scanStatus = document.getElementById('lgpd-scan-status');
@@ -357,13 +308,14 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
         document.getElementById('lgpd-debug-log').style.display = 'block';
         
         mapNomesSuspeitos.clear();
+        let tarjasAutoDetectadas = 0;
 
         try {
             const totalPages = globalPdfJsDoc.numPages;
-            logDebug("\n[INÍCIO] Mapeamento Híbrido Iniciado.");
+            logDebug("\n[INÍCIO] Mapeamento Topográfico (100% Offline) Iniciado.", "info");
 
             for (let i = 1; i <= totalPages; i++) {
-                scanStatus.innerText = `Processando Pág. ${i}/${totalPages}...`;
+                scanStatus.innerText = `Processando Matriz - Pág. ${i}/${totalPages}...`;
                 scanBar.style.width = `${Math.round((i / totalPages) * 100)}%`;
                 
                 const page = await globalPdfJsDoc.getPage(i);
@@ -373,45 +325,47 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                 
                 if (pageContainer) {
                     const validItems = textContent.items.filter(item => item.str.trim() && item.transform);
-                    let textoIntegralDaPagina = "";
                     const linhasObj = [];
 
+                    // --- O PULO DO GATO: FATIAMENTO GEOMÉTRICO (Y-CLUSTERING) ---
                     if (validItems.length > 10) {
-                        let linhaAtual = null;
-
-                        validItems.sort((a, b) => {
-                            const dy = b.transform[5] - a.transform[5];
-                            if (Math.abs(dy) > 5) return dy;
-                            return a.transform[4] - b.transform[4];
-                        }).forEach(item => {
+                        // Agrupa palavras pela altura na tela (Eixo Y), tolerância de 3 pixels
+                        validItems.forEach(item => {
                             const itemY = item.transform[5];
-                            if (!linhaAtual || Math.abs(linhaAtual.y - itemY) > 5) {
-                                linhaAtual = { y: itemY, tokens: [], texto: '', charMap: [] };
-                                linhasObj.push(linhaAtual);
+                            let linhaMatch = linhasObj.find(l => Math.abs(l.y - itemY) < 3.5);
+                            if (!linhaMatch) {
+                                linhaMatch = { y: itemY, tokens: [], texto: '', charMap: [] };
+                                linhasObj.push(linhaMatch);
                             }
-                            
-                            let sep = '';
-                            if (linhaAtual.tokens.length > 0) {
-                                const prevItem = linhaAtual.tokens[linhaAtual.tokens.length - 1];
-                                const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
-                                if (distX > 35) sep = ' | ';
-                                else if (distX > 4 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
-                            }
-                            linhaAtual.tokens.push(item);
-                            
-                            for (let k = 0; k < sep.length; k++) linhaAtual.charMap.push({ char: sep[k], item: null });
-                            for (let k = 0; k < item.str.length; k++) linhaAtual.charMap.push({ char: item.str[k], item: item });
-                            
-                            linhaAtual.texto += sep + item.str;
+                            linhaMatch.tokens.push(item);
                         });
 
-                        textoIntegralDaPagina = linhasObj.map(l => l.texto).join("\n");
+                        // Ordena as palavras da linha da esquerda para a direita (Eixo X)
+                        linhasObj.forEach(linha => {
+                            linha.tokens.sort((a, b) => a.transform[4] - b.transform[4]);
+                            
+                            let prevItem = null;
+                            linha.tokens.forEach(item => {
+                                let sep = '';
+                                if (prevItem) {
+                                    const distX = item.transform[4] - (prevItem.transform[4] + prevItem.width);
+                                    // Se a distância for muito grande, é outra coluna da tabela. Colocamos uma "parede" (|).
+                                    if (distX > 30) sep = ' | ';
+                                    else if (distX > 3 && !prevItem.str.endsWith(' ') && !item.str.startsWith(' ')) sep = ' ';
+                                }
+                                
+                                for (let k = 0; k < sep.length; k++) linha.charMap.push({ char: sep[k], item: null });
+                                for (let k = 0; k < item.str.length; k++) linha.charMap.push({ char: item.str[k], item: item });
+                                
+                                linha.texto += sep + item.str;
+                                prevItem = item;
+                            });
+                        });
                     } else {
                         scanStatus.innerText = `Extraindo imagem Pág. ${i}...`;
                         if (typeof Tesseract === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js');
                         const canvas = pageContainer.querySelector('canvas');
                         const { data } = await Tesseract.recognize(canvas, 'por');
-                        textoIntegralDaPagina = data.text;
                         
                         data.lines.forEach(line => {
                             let obj = { texto: line.text, charMap: [] };
@@ -420,7 +374,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                         });
                     }
 
-                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA E REENGENHARIA DA GEOMETRIA ---
+                    // --- ETAPA 1: AUTO-TARJA MATEMÁTICA E EXPLOSÃO CONTROLADA ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -439,6 +393,7 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
 
                                 if (!hasOverlap) {
                                     logDebug(`>>> AUTO-TARJADO [${regObj.tipo.toUpperCase()}]: [${cleanStr}]`, 'match');
+                                    tarjasAutoDetectadas++;
                                     
                                     let startIndex = matchIdx;
                                     let endIndex = matchIdx + cleanStr.length - 1;
@@ -464,15 +419,15 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                                         }
 
                                         let isAss = (regObj.tipo === 'ass');
-                                        let isGovBrSelo = /gov\.?b\s*r|validar\.iti\.gov\.br/i.test(cleanStr); // FASE 3: Proteção de explosão
+                                        let isGovBrSelo = /gov\.?b\s*r|validar\.iti\.gov\.br/i.test(cleanStr); 
                                         let w_val, h_val, finalX, finalY;
 
                                         if (isAss) {
                                             if (isGovBrSelo) { 
-                                                // Expande apenas se for selo oficial Gov.br
+                                                // Expande apenas se for selo oficial (Explosão Ativada)
                                                 w_val = 260; h_val = 90; finalX = bbox.x1 - 250; finalY = bbox.y0 - 45; 
                                             } else { 
-                                                // Se for texto normal (ex: "assinatura eletrônica")
+                                                // Se for texto corrido "assinatura eletrônica"
                                                 w_val = Math.max(bbox.x1 - bbox.x0 + 10, 15); h_val = Math.max(h_font + 8, 12); finalX = bbox.x0 - 5; finalY = bbox.y0 - h_val + 2; 
                                             }
                                         } else {
@@ -485,100 +440,75 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                                 }
                             }
                         });
-                    });
 
-                    // FASE 1: OTIMIZAÇÃO DE TOKENS (Compressão Extrema do Texto)
-                    let textoComprimidoParaIA = textoIntegralDaPagina
-                        .replace(/INFORMAR E ESCLARECER É DEVER DO COMANDO/gi, '')
-                        .replace(/\(INFORMEX.*?FI \d+\/12\)/gi, '')
-                        .replace(/\s+/g, ' ') // Converte múltiplas quebras e espaços em espaço único
-                        .trim();
+                        // --- ETAPA 2: MOTOR TOPOGRÁFICO PARA NOMES (SEM NUVEM) ---
+                        let matchNome;
+                        regexNomesOffline.lastIndex = 0;
+                        while ((matchNome = regexNomesOffline.exec(linha.texto)) !== null) {
+                            let strOriginal = matchNome[1];
 
-                    // --- ETAPA 2: A INTELIGÊNCIA ARTIFICIAL EXTRAI OS NOMES ---
-                    scanStatus.innerText = `Consultando IA Groq na Pág. ${i}...`;
-                    const nomesIA = await getNamesFromIA(textoComprimidoParaIA, apiKey);
-                    
-                    if (nomesIA && Array.isArray(nomesIA)) {
-                        nomesIA.forEach(nome => {
-                            let cleanNome = removeAcentos(nome.toUpperCase().trim());
-                            
-                            // Blindagem de Alucinações (Verifica no Set local)
-                            if (cleanNome.length < 4 || cleanNome.split(/\s+/).length < 2) return;
-                            if (blacklistGeral.has(cleanNome) || blacklistGeral.has(cleanNome.split(' ')[0])) return;
-                            
-                            logDebug(`[IA Groq] Buscando coordenadas para: ${cleanNome}`, 'info');
-                            
-                            // FASE 4: OCR FUZZY MATCHING (Ignora espaços em branco ao caçar a coordenada geométrica)
-                            let searchNoSpaces = cleanNome.replace(/\s/g, '');
+                            // O muro invisível das tabelas: Se a string tentou pular coluna, descartamos.
+                            if (strOriginal.includes('|')) continue;
 
-                            linhasObj.forEach(linha => {
-                                let textoLinhaLimpo = removeAcentos(linha.texto).toUpperCase();
-                                let linhaNoSpaces = textoLinhaLimpo.replace(/\s/g, '');
-                                
-                                let idxNoSpace = linhaNoSpaces.indexOf(searchNoSpaces);
-                                
-                                while (idxNoSpace !== -1) {
-                                    if (!mapNomesSuspeitos.has(nome.toUpperCase().trim())) {
-                                        mapNomesSuspeitos.set(nome.toUpperCase().trim(), []);
-                                    }
-                                    
-                                    // Mapeia o índice sem espaços de volta para a string original com espaços esmagados
-                                    let start = 0, end = 0;
-                                    let noSpaceCount = 0;
-                                    for(let c = 0; c < textoLinhaLimpo.length; c++) {
-                                        if (textoLinhaLimpo[c] !== ' ') {
-                                            if (noSpaceCount === idxNoSpace) start = c;
-                                            if (noSpaceCount === idxNoSpace + searchNoSpaces.length - 1) {
-                                                end = c;
-                                                break;
-                                            }
-                                            noSpaceCount++;
-                                        }
-                                    }
-                                    
-                                    // Contrai os limites se houver caracteres vazios no início/fim
-                                    while (start <= end && (!linha.charMap[start].item || linha.charMap[start].char.trim() === '')) start++;
-                                    while (end >= start && (!linha.charMap[end].item || linha.charMap[end].char.trim() === '')) end--;
-                                    
-                                    if(start <= end) {
-                                        const first = linha.charMap[start].item;
-                                        const last = linha.charMap[end].item;
-                                        
-                                        let x0, y0, x1, h;
-                                        if (first.transform) {
-                                            [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
-                                            [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
-                                            const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
-                                            h = Math.max((fs * viewport.scale) + 8, 12);
-                                        } else {
-                                            x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
-                                            h = first.bbox.y1 - first.bbox.y0 + 8;
-                                        }
-                                        
-                                        mapNomesSuspeitos.get(nome.toUpperCase().trim()).push({
-                                            pageNode: pageContainer,
-                                            w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
-                                        });
-                                        
-                                        logDebug(`[Sucesso] Mapeado: ${cleanNome}`, 'suspect');
-                                    }
-                                    
-                                    idxNoSpace = linhaNoSpaces.indexOf(searchNoSpaces, idxNoSpace + searchNoSpaces.length);
+                            let cleanNome = limparPatentesDasBordas(strOriginal);
+                            
+                            // Rejeita lixo administrativo isolado
+                            if (cleanNome.split(/\s+/).length < 2) continue;
+
+                            // Verifica com a Blacklist Suprema
+                            let isBlacklisted = false;
+                            let palavras = cleanNome.toUpperCase().split(/\s+/);
+                            for (let w of palavras) {
+                                if (blacklistGeral.has(removeAcentos(w))) {
+                                    isBlacklisted = true; break;
                                 }
-                            });
-                        });
-                    } else if (nomesIA === null) {
-                        alert("A chave informada foi rejeitada pela Groq ou houve falha na extração. Verifique o console de rastreio.");
-                        btn.style.display = "block";
-                        scanContainer.style.display = "none";
-                        return;
-                    }
+                            }
+
+                            if (!isBlacklisted) {
+                                logDebug(`[Mapeado Offline] Entidade Suspeita: ${cleanNome}`, 'suspect');
+                                
+                                let startIdx = linha.texto.indexOf(cleanNome, matchNome.index);
+                                if (startIdx === -1) startIdx = matchNome.index;
+                                let endIdx = startIdx + cleanNome.length - 1;
+
+                                // Contrai os limites geométricos exatos (Impede o vazamento de tarja)
+                                while (startIdx <= endIdx && (!linha.charMap[startIdx].item || linha.charMap[startIdx].char.trim() === '')) startIdx++;
+                                while (endIdx >= startIdx && (!linha.charMap[endIdx].item || linha.charMap[endIdx].char.trim() === '')) endIdx--;
+
+                                if (startIdx <= endIdx) {
+                                    if (!mapNomesSuspeitos.has(cleanNome)) mapNomesSuspeitos.set(cleanNome, []);
+                                    
+                                    const first = linha.charMap[startIdx].item;
+                                    const last = linha.charMap[endIdx].item;
+                                    
+                                    let x0, y0, x1, h;
+                                    if (first.transform) {
+                                        [x0, y0] = viewport.convertToViewportPoint(first.transform[4], first.transform[5]);
+                                        [x1] = viewport.convertToViewportPoint(last.transform[4] + last.width, last.transform[5]);
+                                        const fs = Math.sqrt(first.transform[2]**2 + first.transform[3]**2) || Math.abs(first.transform[0]);
+                                        h = Math.max((fs * viewport.scale) + 8, 12);
+                                    } else {
+                                        x0 = first.bbox.x0; y0 = first.bbox.y1; x1 = last.bbox.x1; 
+                                        h = first.bbox.y1 - first.bbox.y0 + 8;
+                                    }
+                                    
+                                    mapNomesSuspeitos.get(cleanNome).push({
+                                        pageNode: pageContainer,
+                                        w: Math.max(x1 - x0 + 10, 15), h: h, x: Math.max(0, x0 - 5), y: Math.max(0, y0 - h + 2)
+                                    });
+                                }
+                                
+                                // Bloqueia a área para não tarjar de novo por cima
+                                for (let k = 0; k < cleanNome.length; k++) overlaps[startIdx + k] = 1;
+                            }
+                        }
+                    });
                 }
             }
             
             scanContainer.style.display = "none";
             
-            // MONTAGEM DO PAINEL DE REVISÃO HUMANA
+            // --- MONTAGEM DO PAINEL DE REVISÃO HUMANA ---
             const painelRevisao = document.getElementById('painel-revisao-nomes');
             const divLista = document.getElementById('lista-nomes-suspeitos');
             divLista.innerHTML = ''; 
@@ -600,10 +530,10 @@ Exemplo: ["JOSE DOS SANTOS", "MARIA DA SILVA"]`;
                 });
                 
                 painelRevisao.style.display = 'flex';
-                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} pessoas para revisão.`);
-                alert(`Leitura IA Concluída!\n\nDocumentos e Assinaturas foram tarjados automaticamente.\nA IA encontrou ${mapNomesSuspeitos.size} nomes próprios de pessoas.\n\nRevise a lista no painel direito, desmarque quem NÃO deve ser tarjado e clique em "Aplicar Tarjas".`);
+                logDebug(`\n[AGUARDANDO HUMANO] ${mapNomesSuspeitos.size} entidades para revisão.`);
+                alert(`Mapeamento Topográfico Concluído!\n\nDocs e Assinaturas tarjados automaticamente.\nO motor offline isolou ${mapNomesSuspeitos.size} possíveis Nomes Próprios.\n\nRevise a lista no painel, desmarque o que NÃO for pessoa, e aplique as tarjas.`);
             } else {
-                alert("Mapeamento concluído. A IA não localizou Nomes Próprios na página.");
+                alert("Mapeamento concluído. O sistema não isolou Nomes Próprios suspeitos na página.");
                 btn.style.display = "block";
             }
 
