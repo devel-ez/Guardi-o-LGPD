@@ -1,7 +1,7 @@
 (function() {
     if (document.getElementById('lgpd-redactor-root')) return;
 
-    // 1. Estilos (Tema Dark Offline Militar)
+    // 1. Estilos (Tema Dark Offline)
     const style = document.createElement('style');
     style.innerHTML = `
         .lgpd-dropzone.dragover { background: #e2e8f0 !important; border-color: #475569 !important; }
@@ -227,10 +227,8 @@
         let visiblePage = pages[0];
         let maxVisible = 0;
         
-        // Descobre matematicamente qual página você está olhando no momento
         pages.forEach(p => {
             const rect = p.getBoundingClientRect();
-            // Calcula o quanto da página está dentro da tela visível do navegador
             const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
             if(visibleHeight > maxVisible) {
                 maxVisible = visibleHeight;
@@ -238,16 +236,13 @@
             }
         });
 
-        // Calcula a posição Y para a tarja aparecer onde você está olhando, e não presa no topo da página
         const pageRect = visiblePage.getBoundingClientRect();
         let topPos = 50; 
         if (pageRect.top < 0) {
-            topPos = Math.abs(pageRect.top) + 100; // Coloca a tarja 100px abaixo do corte do seu monitor
+            topPos = Math.abs(pageRect.top) + 100;
         }
 
-        // Injeta a tarja vermelha (não confirmada) com um tamanho padrão de 150x20
         injetarTarjaNaPagina(visiblePage, '150px', '20px', `${topPos}px`, '50px', false);
-        
         logDebug(`[Tarja Manual] Inserida na Página ${visiblePage.getAttribute('data-page-number')}`, 'info');
         document.getElementById('btn-confirm-all').style.display = 'block';
     };
@@ -336,7 +331,8 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
-    const blacklistGeral = new Set([
+    // --- A LISTA NEGRA SUPREMA (CORRIGIDA) ---
+    const blacklistPalavras = new Set([
         "NOME", "POSTO", "ORD", "UF", "CIDADE", "OBS", "TOTAL", "TURMA", "ARMA", "QUADRO",
         "INF", "CAV", "ART", "ENG", "COM", "INT", "MB", "QEM", "MED", "DENT", "FARM", 
         "QEMEL", "QEMFC", "PE", "DIFUSAO", "ASSUNTO", "DISTRIBUICAO", "INFORMEX", 
@@ -359,7 +355,11 @@
         "CIAINFMTZ", "RCB", "RCMEC", "CIMH", "CISM", "COUD", "DCMUN", "ECT", "ICMP", "BC2", 
         "CT", "BCSV", "ESACOSAAE", "BLOG", "MNMSGM", "CEO", "SGEX", "COEX", "SEF", "DASHVA", 
         "VITORIA", "BATALHA", "PATRONOS", "COMUNICACAO", "SOCIAL", "BIPGD", "PREC", "BDOMPSA",
-        "BEXAP", "OP", "ESP", "PCLIN", "MPV", "MPA", "CIJF", "CEAC", "CADA", "CIBSB", "DSTAVEX"
+        "BEXAP", "OP", "ESP", "PCLIN", "MPV", "MPA", "CIJF", "CEAC", "CADA", "CIBSB", "DSTAVEX",
+        // Adições para Atestados e Licitações Gerais
+        "ATESTADO", "CAPACIDADE", "TECNICA", "LOCADORA", "TURISMO", "SERVICOS", "COMERCIO",
+        "INDUSTRIA", "DECLARACAO", "OBJETO", "VALOR", "GLOBAL", "UNITARIO", "DATA", "ASSINATURA",
+        "GESTAO", "LOCACAO", "VEICULOS", "FROTA", "TERMO", "ADITIVO"
     ]);
 
     const blacklistCidades = new Set([
@@ -473,6 +473,7 @@
                         });
                     }
 
+                    // --- ETAPA DE INJEÇÃO DIRETA VISUAL ---
                     linhasObj.forEach(linha => {
                         const overlaps = new Uint8Array(linha.texto.length);
                         
@@ -568,7 +569,7 @@
                                 while (endIdx >= startIdx && (!linha.charMap[endIdx].item || linha.charMap[endIdx].char.trim() === '')) endIdx--;
 
                                 if (startIdx <= endIdx) {
-                                    logDebug(`[Pessoa Localizada] Desenhando tarja em: ${cleanNome}`, 'suspect');
+                                    logDebug(`[Suspeito Localizado] Desenhando tarja em: ${cleanNome}`, 'suspect');
                                     
                                     const first = linha.charMap[startIdx].item;
                                     const last = linha.charMap[endIdx].item;
