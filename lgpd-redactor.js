@@ -513,8 +513,13 @@
         { tipo: 'ass', r: /((?:gov\.?b\s*r(?:\/assinatura)?|Documento\s+assinado\s+eletronicamente|Documento\s+assinado\s+digitalmente|validar\.iti\.gov\.br|Assinado\s+de\s+forma\s+digital|assinatura\s+eletr[ôo]nica|certificado\s+digital|código\s+de\s+validação:\s*[a-zA-Z0-9+/=]{10,}))/gi }, 
         
         // CEP Estrito
-        { tipo: 'cep', r: /\b(CEP\s*[:.-]?\s*\d{2}\.?\d{3}-\d{3})\b/gi }
-    ];
+    { tipo: 'cep', r: /\b(CEP\s*[:.-]?\s*\d{2}\.?\d{3}-\d{3})\b/gi },
+    { tipo: 'cnpj', r: /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g },
+    { tipo: 'email', r: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
+    { tipo: 'telefone', r: /\b(?:\+?55\s?)?\(?\d{2}\)?\s?9?\d{4}-?\d{4}\b/g },
+    { tipo: 'pis', r: /\b\d{3}\.\d{5}\.\d{2}-\d\b/g },
+    { tipo: 'cns', r: /\b\d{3}\.\d{3}\.\d{3}\.\d{3}\b/g }
+];
 
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
 
