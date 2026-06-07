@@ -519,7 +519,8 @@
     { tipo: 'telefone', r: /\b(?:\+?55\s?)?\(?\d{2}\)?\s?9?\d{4}-?\d{4}\b/g },
     { tipo: 'pis', r: /\b\d{3}\.\d{5}\.\d{2}-\d\b/g },
     { tipo: 'cns', r: /\b\d{3}\.\d{3}\.\d{3}\.\d{3}\b/g },
-    { tipo: 'cnh_standalone', r: /\b\d{11}\b/g }
+    { tipo: 'cnh_standalone', r: /\b\d{11}\b/g },
+    { tipo: 'oab', r: /\bOAB[\s\/\-]?(?:[A-Z]{2})\s?\d{4,6}\b/gi }
 ];
 
     const regexNomesOffline = /\b([A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,}(?:\s+(?:de|da|do|dos|das|e|DE|DA|DO|DOS|DAS|E))?(?:\s+[A-ZÁÀÃÂÉÊÍÓÕÔÚÜÇ][a-zA-ZÁÀÃÂÉÊÍÓÕÔÚÜÇáàãâéêíóõôúüç]{2,})+)\b/g;
